@@ -1,6 +1,5 @@
 import torch
 import torch.distributions as dist
-import matplotlib.pyplot as plt
 
 from mp_baselines.planners.base import MPPlanner
 
@@ -14,7 +13,7 @@ class STOMP(MPPlanner):
             num_samples: int,
             n_iters: int,
             dt: float,
-            init_q: torch.Tensor,
+            start_state: torch.Tensor,
             cost=None,
             temperature: float = 1.,
             step_size: float = 1.,
@@ -34,7 +33,7 @@ class STOMP(MPPlanner):
         self.lr = step_size
         self.grad_clip = grad_clip
 
-        self.init_q = init_q
+        self.start_state = start_state
         self.goal_state = goal_state
         self.num_samples = num_samples
         self.temperature = temperature
@@ -43,10 +42,10 @@ class STOMP(MPPlanner):
 
         if self.pos_only:
             self.d_state_opt = self.n_dofs
-            self.start_state = self.init_q
+            self.start_state = self.start_state
         else:
             self.d_state_opt = 2 * self.n_dofs
-            self.start_state = torch.cat([self.init_q, torch.zeros_like(self.init_q)], dim=-1)
+            self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
             self.goal_state = torch.cat([self.goal_state, torch.zeros_like(self.goal_state)], dim=-1)
 
         self._mean = None
@@ -55,7 +54,6 @@ class STOMP(MPPlanner):
 
         # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
         self.Sigma_inv = self._get_R_mat()
-        print(self.Sigma_inv)
         self.Sigma = torch.inverse(self.Sigma_inv)
         self.reset()
         self.best_cost = torch.inf

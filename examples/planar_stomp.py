@@ -20,10 +20,8 @@ if __name__ == "__main__":
     num_particles_per_goal = 5
     num_samples = 32
     seed = 11
-    start_q = torch.tensor([-9, -9], **tensor_args)
-    start_state = torch.cat((start_q, torch.zeros(2, **tensor_args)))
-    goal_q = torch.tensor([9, 8], **tensor_args)
-    goal_state = torch.cat((goal_q, torch.zeros(2, **tensor_args)))
+    start_state = torch.tensor([-9, -9], **tensor_args)
+    goal_state = torch.tensor([9, 8], **tensor_args)
 
     ## Obstacle map
     # obst_list = [(0, 0, 4, 6)]
@@ -61,7 +59,7 @@ if __name__ == "__main__":
         num_samples=num_samples,
         n_iters=1, # Keep this 1 for visualization
         dt=dt,
-        init_q=start_q,
+        start_state=start_state,
         cost=cost_composite,
         temperature=1.,
         step_size=0.5,

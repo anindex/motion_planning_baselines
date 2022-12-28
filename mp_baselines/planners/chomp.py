@@ -14,7 +14,7 @@ class CHOMP(MPPlanner):
             num_particles: int,
             n_iters: int,
             dt: float,
-            init_q: torch.Tensor,
+            start_state: torch.Tensor,
             cost=None,
             temperature: float = 1.,
             step_size: float = 1.,
@@ -34,7 +34,7 @@ class CHOMP(MPPlanner):
         self.lr = step_size
         self.grad_clip = grad_clip
 
-        self.init_q = init_q
+        self.start_state = start_state
         self.goal_state = goal_state
         self.num_particles = num_particles
         self.temperature = temperature
@@ -43,10 +43,10 @@ class CHOMP(MPPlanner):
 
         if self.pos_only:
             self.d_state_opt = self.n_dofs
-            self.start_state = self.init_q
+            self.start_state = self.start_state
         else:
             self.d_state_opt = 2 * self.n_dofs
-            self.start_state = torch.cat([self.init_q, torch.zeros_like(self.init_q)], dim=-1)
+            self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
             self.goal_state = torch.cat([self.goal_state, torch.zeros_like(self.goal_state)], dim=-1)
 
         self._mean = None
