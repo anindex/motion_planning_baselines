@@ -18,10 +18,9 @@ if __name__ == "__main__":
     traj_len = 64
     dt = 0.02
     num_particles_per_goal = 5
-    num_samples = 128
     seed = 11
     start_state = torch.tensor([-9, -9], **tensor_args)
-    goal_state = torch.tensor([9, 8], **tensor_args)
+    multi_goal_states = torch.tensor([9, 8], **tensor_args).unsqueeze(0)
 
     ## Obstacle map
     # obst_list = [(0, 0, 4, 6)]
@@ -60,15 +59,17 @@ if __name__ == "__main__":
     chomp_params = dict(
         n_dofs=n_dof,
         traj_len=traj_len,
-        num_particles=num_particles_per_goal,
+        num_particles_per_goal=num_particles_per_goal,
         n_iters=1, # Keep this 1 for visualization
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        temperature=1.,
         step_size=0.5,
         grad_clip=0.1,
-        goal_state=goal_state,
+        multi_goal_states=multi_goal_states,
+        sigma_start_init=0.001,
+        sigma_goal_init=0.001,
+        sigma_gp_init=30.,
         pos_only=False,
         tensor_args=tensor_args,
     )
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     res = 200
     x = np.linspace(-10, 10, res)
     y = np.linspace(-10, 10, res)
-    X, Y = np.meshgrid(x,y)
+    X, Y = np.meshgrid(x, y)
     grid = torch.from_numpy(np.stack((X, Y), axis=-1)).to(**tensor_args)
     fig = plt.figure()
     view_field = True
@@ -108,6 +109,7 @@ if __name__ == "__main__":
             cs = ax.contourf(x, y, obst_map.map, 20, cmap='Greys')
         ax.set_aspect('equal')
         trajs = trajs.cpu().numpy()
-        ax.plot(trajs[:, 0], trajs[:, 1], 'ro', markersize=3)
+        for i in range(trajs.shape[0]):
+            ax.plot(trajs[i, :, 0], trajs[i, :, 1], 'ro', markersize=3)
         plt.draw()
         plt.pause(0.01)

@@ -1,7 +1,6 @@
 import torch
 from mp_baselines.planners.priors.gaussian import get_multivar_gaussian_prior
 from mp_baselines.planners.base import MPPlanner
-# from .control_priors import diag_Cov, const_ctrl_Cov
 
 
 class MPPI(MPPlanner):

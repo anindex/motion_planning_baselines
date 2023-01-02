@@ -2,62 +2,55 @@ import torch
 import torch.distributions as dist
 import matplotlib.pyplot as plt
 
-from mp_baselines.planners.base import MPPlanner
+from mp_baselines.planners.base import OptimizationPlanner
 
 
-class CHOMP(MPPlanner):
+class CHOMP(OptimizationPlanner):
 
     def __init__(
             self,
             n_dofs: int,
             traj_len: int,
-            num_particles: int,
+            num_particles_per_goal: int,
             n_iters: int,
             dt: float,
             start_state: torch.Tensor,
             cost=None,
-            initial_mean=None,
-            temperature: float = 1.,
+            initial_particle_means=None,
             step_size: float = 1.,
             grad_clip: float = .01,
-            goal_state: torch.Tensor = None,
+            multi_goal_states: torch.Tensor = None,
+            sigma_start_init=0.001,
+            sigma_goal_init=0.001,
+            sigma_gp_init=10.,
             pos_only: bool = True,
             tensor_args: dict = None
     ):
-        super(CHOMP, self).__init__(name='CHOMP', tensor_args=tensor_args)
-        self.n_dofs = n_dofs
-        self.traj_len = traj_len
-        self.n_iters = n_iters
-        self.pos_only = pos_only
-        self.dt = dt
+        super(CHOMP, self).__init__(name='CHOMP',
+                                    n_dofs=n_dofs,
+                                    traj_len=traj_len,
+                                    num_particles_per_goal=num_particles_per_goal,
+                                    n_iters=n_iters,
+                                    dt=dt,
+                                    start_state=start_state,
+                                    cost=cost,
+                                    initial_particle_means=initial_particle_means,
+                                    multi_goal_states=multi_goal_states,
+                                    sigma_start_init=sigma_start_init,
+                                    sigma_goal_init=sigma_goal_init,
+                                    sigma_gp_init=sigma_gp_init,
+                                    pos_only=pos_only,
+                                    tensor_args=tensor_args)
 
         # CHOMP params
         self.lr = step_size
         self.grad_clip = grad_clip
 
-        self.start_state = start_state
-        self.goal_state = goal_state
-        self.num_particles = num_particles
-        self.temperature = temperature
-
-        self.cost = cost
-
-        if self.pos_only:
-            self.d_state_opt = self.n_dofs
-            self.start_state = self.start_state
-        else:
-            self.d_state_opt = 2 * self.n_dofs
-            self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
-            self.goal_state = torch.cat([self.goal_state, torch.zeros_like(self.goal_state)], dim=-1)
-
-        self._mean = None
-        self._weights = None
-        self._sample_dist = None
-
+        self._particle_means = None
         # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
         self.Sigma_inv = self._get_R_mat()
         self.Sigma = torch.inverse(self.Sigma_inv)
-        self.reset(initial_mean=initial_mean)
+        self.reset(initial_particle_means=initial_particle_means)
 
     def _get_R_mat2(self):
         """
@@ -98,61 +91,15 @@ class CHOMP(MPPlanner):
 
         return R_mat.to(**self.tensor_args)
 
-    def set_noise_dist(self):
-        """
-            Additive Gaussian noise distribution over 1-dimensional trajectory.
-        """
-        self._noise_dist = dist.MultivariateNormal(
-            torch.zeros(self.traj_len, **self.tensor_args),
-            precision_matrix=self.Sigma_inv,
-        )
-
-    def sample(self):
-        """
-            Generate trajectory samples from Gaussian control dist.
-            Return: position-trajectory samples, of shape: [num_particles, traj_len, n_dof]
-        """
-        noise = self._noise_dist.sample((self.num_particles, self.d_state_opt)).transpose(1, 2)
-
-        # Force Bound to zero ##
-        noise[:, -1, :] = torch.zeros_like(noise[:, -1, :])
-        noise[:, 0, :] = torch.zeros_like(noise[:, 0, :])
-
-        samples = self._mean.unsqueeze(0) + noise
-        return samples
-
     def reset(
             self,
-            start_state=None,
-            goal_state=None,
-            initial_mean=None,
+            initial_particle_means=None,
     ):
-        if start_state is None:
-            start_state = self.start_state.clone()
-
-        if goal_state is None:
-            goal_state = self.goal_state.clone()
-
         # Straightline position-trajectory from start to goal with const vel
-        if initial_mean is not None:
-            self._mean = initial_mean.clone()
+        if initial_particle_means is not None:
+            self._particle_means = initial_particle_means.clone()
         else:
-            self._mean = self.const_vel_trajectory(start_state, goal_state)
-
-    def const_vel_trajectory(
-        self,
-        start_state,
-        goal_state,
-    ):
-        num_steps = self.traj_len - 1
-        state_traj = torch.zeros(num_steps + 1, self.d_state_opt, **self.tensor_args)
-        for i in range(num_steps + 1):
-            state_traj[i, :self.n_dofs] = start_state[:self.n_dofs] * (num_steps - i) * 1. / num_steps \
-                                  + goal_state[:self.n_dofs] * i * 1./num_steps
-        if not self.pos_only:
-            mean_vel = (goal_state[:self.n_dofs] - start_state[:self.n_dofs]) / (num_steps * self.dt)
-            state_traj[:, self.n_dofs:] = mean_vel.unsqueeze(0)
-        return state_traj
+            self._particle_means = self.get_random_trajs()
 
     def optimize(
             self,
@@ -176,32 +123,22 @@ class CHOMP(MPPlanner):
         if opt_iters is None:
             opt_iters = self.n_iters
         for opt_step in range(opt_iters):
-            self._mean.requires_grad_(True)
-            costs = self._eval(self._mean, **observation)
+            self._particle_means.requires_grad_(True)
+            costs = self._eval(self._particle_means, **observation)
 
             # Get grad
             costs.sum().backward(retain_graph=True)
-            self._mean.grad.data.clamp_(-self.grad_clip, self.grad_clip)  # For stabilizing and preventing too high gradients
+            self._particle_means.grad.data.clamp_(-self.grad_clip, self.grad_clip)  # For stabilizing and preventing too high gradients
             # zeroing grad at start and goal
-            self._mean.grad.data[0, :] = torch.zeros_like(self._mean.grad.data[0, :])
-            self._mean.grad.data[-1, :] = torch.zeros_like(self._mean.grad.data[-1, :])
+            self._particle_means.grad.data[..., 0, :] = 0.
+            self._particle_means.grad.data[..., -1, :] = 0.
 
             # Update trajectory
-            self._mean.data.add_(-self.lr * self._mean.grad.data)
-            self._mean.grad.detach_()
-            self._mean.grad.zero_()
+            self._particle_means.data.add_(-self.lr * self._particle_means.grad.data)
+            self._particle_means.grad.detach_()
+            self._particle_means.grad.zero_()
 
-            if optim_vis:
-                # print(opt_step)
-                trj = self._mean.detach().cpu().numpy()
-                plt.figure(1)
-                plt.clf()
-                plt.plot(trj[:, 0], trj[:, 1])
-                plt.plot(trj[:, 0], trj[:, 1], 'o')
-                plt.draw()
-                plt.pause(0.05)
-
-        self._mean = self._mean.detach()
+        self._particle_means = self._particle_means.detach()
 
     def _eval(self, x, **observation):
         """
@@ -216,30 +153,6 @@ class CHOMP(MPPlanner):
         # Add smoothness term
         R_mat = self.Sigma_inv.clone()
         smooth_cost = x.transpose(1, 2) @ R_mat.unsqueeze(0) @ x
-        costs += 1 * smooth_cost.diagonal(dim1=1, dim2=2).sum()
+        costs += smooth_cost.diagonal(dim1=1, dim2=2).sum()
 
-        return costs
-
-    def _get_traj(self):
-        """
-            Get position-velocity trajectory from control distribution.
-        """
-        traj = self._mean.clone()
-        if self.pos_only:
-            # Linear velocity by finite differencing
-            vels = (traj[:-1] - traj[1:]) / self.dt
-            # Pad end with zero-vel for planning
-            vels = torch.cat(
-                (vels,
-                 torch.zeros(1, self.n_dofs, **self.tensor_args)),
-                dim=0,
-            )
-            traj = torch.cat((traj, vels), dim=1)
-        return traj
-
-    def _get_costs(self, state_trajectories, **observation):
-        if self.cost is None:
-            costs = torch.zeros(self.num_particles, )
-        else:
-            costs = self.cost.eval(state_trajectories, **observation)
         return costs
