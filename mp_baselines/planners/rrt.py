@@ -113,7 +113,6 @@ class RRTStar(MPPlanner):
         """
         Optimize for best trajectory at current state
         """
-
         return self._run_optimization(opt_iters, **observation)
 
     def _run_optimization(self, opt_iters, **observation):
@@ -124,10 +123,8 @@ class RRTStar(MPPlanner):
         initial_nodes = observation.get('initial_nodes', None)
         informed = observation.get('informed', False)
         eps = observation.get('eps', 1e-6)
-        print_freq = observation.get('print_freq', 10)
+        print_freq = observation.get('print_freq', 50)
         debug = observation.get('debug', False)
-        if opt_iters is None:
-            opt_iters = self.n_iters
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
@@ -142,12 +139,13 @@ class RRTStar(MPPlanner):
             # Informed RRT*
             if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
                 continue
-            if iteration % print_freq == 0:
+            if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
                 success = goal_n is not None
                 cost = goal_n.cost if success else torch.inf
                 if debug:
-                    print('Iteration: {} | Time: {:.3f} | Success: {} | {} | Cost: {:.3f}'.format(
-                    iteration, elapsed_time(start_time), success, do_goal, cost))
+                    print('Iteration: {} | Time: {:.3f} | Success: {} | {} | Cost: {:.4f}'.format(
+                        iteration, elapsed_time(start_time), success, do_goal, cost))
+
             iteration += 1
 
             nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
@@ -156,17 +154,15 @@ class RRTStar(MPPlanner):
             if len(path) == 0:
                 continue
             new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
-                #nearest.config, path[-1]), path=path, iteration=iteration)
-                nearest.config, path[-1]), path = path[:-1], iteration=iteration)
+                nearest.config, path[-1]), path=path[:-1], iteration=iteration)
 
-            # if safe and do_goal:
             if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
                 goal_n = new
                 goal_n.set_solution(True)
-            # TODO - k-nearest neighbor version
 
+            # TODO - k-nearest neighbor version
             neighbors = filter(lambda n: self.distance_fn(n.config, new.config) < self.n_radius, self.nodes)
-            neighbors = list(neighbors) # Make list so both for loops can loop over it!
+            neighbors = list(neighbors)  # Make list so both for loops can loop over it!
             self.nodes.append(new)
 
             # TODO: smooth solution once found to improve the cost bound
@@ -176,9 +172,9 @@ class RRTStar(MPPlanner):
                     n_path = safe_path(self.extend_fn(n.config, new.config), self.collision_fn)[:]
                     n_dist = self.distance_fn(new.config, n_path[-1])
                     if (len(n_path) != 0) and (n_dist < eps):
-                        # render(new.parent)
                         new.rewire(n, d, n_path[:-1], iteration=iteration)
-            for n in neighbors:  # TODO - avoid repeating work
+            # TODO - avoid repeating work
+            for n in neighbors:
                 d = self.distance_fn(new.config, n.config)
                 if (new.cost + d) < n.cost:
                     n_path = safe_path(self.extend_fn(new.config, n.config), self.collision_fn)[:]
@@ -263,3 +259,4 @@ class RRTStar(MPPlanner):
         else:
             costs = self.cost.eval(state_trajectories, **observation)
         return costs
+

@@ -7,6 +7,22 @@ import numpy as np
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
 from stoch_gpmp.costs.cost_functions import CostCollision, CostComposite
 from mp_baselines.planners.rrt import RRTStar
+from torch_planning_objectives.fields.occupancy_map.obst_map import ObstacleCircle
+
+
+def create_grid_circles(rows=5, cols=5, radius=0.1):
+    # Generates a grid (rows, cols) of circles
+    circles = np.empty((rows*cols, 3), dtype=np.float32)
+    distance_from_wall = 0.35
+    centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
+    centers_y = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, rows)
+    X, Y = np.meshgrid(centers_x, centers_y)
+    x_flat = X.flatten()
+    y_flat = Y.flatten()
+    circles[:, :2] = np.array([x_flat, y_flat]).T
+    circles[:, 2] = radius
+    obst_list = [ObstacleCircle(x, y, r) for x, y, r in circles]
+    return circles, obst_list
 
 
 if __name__ == "__main__":
@@ -15,38 +31,32 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 500
-    step_size = 1.
-    n_radius = 2.
-    goal_prob = 0.05
+    n_iters = 1000
+    step_size = 0.05
+    n_radius = 0.1
+    goal_prob = 0.1
     max_time = 60.
-    seed = 17
-    start_state = torch.tensor([-9, -9], **tensor_args)
-    goal_state = torch.tensor([9, 8], **tensor_args)
-    limits = torch.tensor([[-10, 10], [-10, 10]], **tensor_args)
+    seed = 18
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+    limits = torch.tensor([[-1, 1], [-1, 1]], **tensor_args)
 
     ## Obstacle map
-    # obst_list = [(0, 0, 4, 6)]
-    obst_list = []
-    cell_size = 0.1
-    map_dim = [20, 20]
+    cell_size = 0.01
+    map_dim = [2, 2]
+
+    rows = 5
+    cols = 5
+    radius = 0.1
+    circles, obst_list = create_grid_circles(rows, cols, radius)
 
     obst_params = dict(
         map_dim=map_dim,
         obst_list=obst_list,
         cell_size=cell_size,
         map_type='direct',
-        random_gen=True,
-        num_obst=8,
-        rand_xy_limits=[[-7.5, 7.5], [-7.5, 7.5]],
-        rand_rect_shape=[2, 2],
-        rand_circle_radius=2,
         tensor_args=tensor_args,
     )
-    # For obst. generation
-    random.seed(seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
     obst_map, obst_list = generate_obstacle_map(**obst_params)
 
     # -------------------------------- Planner ---------------------------------
@@ -74,14 +84,13 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     # Plotting
 
-    import numpy as np
-    res = 200
-    x = np.linspace(-10, 10, res)
-    y = np.linspace(-10, 10, res)
+    res = obst_map.map.shape[0]
+    x = np.linspace(-1, 1, res)
+    y = np.linspace(-1, 1, res)
     fig = plt.figure()
     planner.render()
     ax = fig.gca()
-    cs = ax.contourf(x, y, obst_map.map, 20, cmap='Greys')
+    cs = ax.contourf(x, y, obst_map.map, 2, cmap='Greys')
     ax.plot(start_state[0], start_state[1], 'go', markersize=7)
     ax.plot(goal_state[0], goal_state[1], 'ro', markersize=7)
     ax.set_aspect('equal')
@@ -89,3 +98,5 @@ if __name__ == "__main__":
         traj = np.array(traj)
         ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
     plt.show()
+
+
