@@ -15,6 +15,7 @@ class STOMP(MPPlanner):
             dt: float,
             start_state: torch.Tensor,
             cost=None,
+            initial_mean=None,
             temperature: float = 1.,
             step_size: float = 1.,
             grad_clip: float = .01,
@@ -55,7 +56,7 @@ class STOMP(MPPlanner):
         # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
         self.Sigma_inv = self._get_R_mat()
         self.Sigma = torch.inverse(self.Sigma_inv)
-        self.reset()
+        self.reset(initial_mean=initial_mean)
         self.best_cost = torch.inf
 
     def _get_R_mat(self):
@@ -105,15 +106,8 @@ class STOMP(MPPlanner):
             self,
             start_state=None,
             goal_state=None,
+            initial_mean=None,
     ):
-        self._reset_distribution(start_state, goal_state)
-
-    def _reset_distribution(
-            self,
-            start_state=None,
-            goal_state=None,
-    ):
-
         if start_state is None:
             start_state = self.start_state.clone()
 
@@ -121,6 +115,10 @@ class STOMP(MPPlanner):
             goal_state = self.goal_state.clone()
 
         # Straightline position-trajectory from start to goal
+        if initial_mean is not None:
+            self._mean = initial_mean.clone()
+        else:
+            self._mean = self.const_vel_trajectory(start_state, goal_state)
         self._mean = self.const_vel_trajectory(start_state, goal_state)
         self.set_noise_dist()
         self.state_particles = self.sample()

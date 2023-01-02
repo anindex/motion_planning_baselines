@@ -16,6 +16,7 @@ class CHOMP(MPPlanner):
             dt: float,
             start_state: torch.Tensor,
             cost=None,
+            initial_mean=None,
             temperature: float = 1.,
             step_size: float = 1.,
             grad_clip: float = .01,
@@ -56,7 +57,7 @@ class CHOMP(MPPlanner):
         # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
         self.Sigma_inv = self._get_R_mat()
         self.Sigma = torch.inverse(self.Sigma_inv)
-        self.reset()
+        self.reset(initial_mean=initial_mean)
 
     def _get_R_mat2(self):
         """
@@ -80,9 +81,9 @@ class CHOMP(MPPlanner):
 
     def _get_R_mat(self):
         """
-        STOMP time-correlated Precision matrix.
+        CHOMP time-correlated Precision matrix.
         """
-        lower_diag = -1*torch.diag(torch.ones(self.traj_len - 1), diagonal=-1, )
+        lower_diag = -torch.diag(torch.ones(self.traj_len - 1), diagonal=-1)
         diag = 1 * torch.eye(self.traj_len)
         A_mat = diag + lower_diag
         A_mat = torch.cat(
@@ -124,15 +125,8 @@ class CHOMP(MPPlanner):
             self,
             start_state=None,
             goal_state=None,
+            initial_mean=None,
     ):
-        self._reset_traj(start_state, goal_state)
-
-    def _reset_traj(
-            self,
-            start_state=None,
-            goal_state=None,
-    ):
-
         if start_state is None:
             start_state = self.start_state.clone()
 
@@ -140,7 +134,10 @@ class CHOMP(MPPlanner):
             goal_state = self.goal_state.clone()
 
         # Straightline position-trajectory from start to goal with const vel
-        self._mean = self.const_vel_trajectory(start_state, goal_state)
+        if initial_mean is not None:
+            self._mean = initial_mean.clone()
+        else:
+            self._mean = self.const_vel_trajectory(start_state, goal_state)
 
     def const_vel_trajectory(
         self,

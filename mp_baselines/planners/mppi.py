@@ -13,6 +13,7 @@ class MPPI(MPPlanner):
             rollout_steps,
             opt_iters,
             control_std=None,
+            initial_mean=None,
             step_size=1.,
             temp=1.,
             cov_prior_type='indep_ctrl',
@@ -51,13 +52,17 @@ class MPPI(MPPlanner):
             Cov_inv.append(self.ctrl_dist.Cov[..., i].inverse())
         self.Cov_inv = torch.stack(Cov_inv)
         self.best_cost = torch.inf
+        self.reset(initial_mean=initial_mean)
 
-    def reset(self):
-        self._mean = torch.zeros(
-            self.rollout_steps,
-            self.control_dim,
-            **self.tensor_args,
-        )
+    def reset(self, initial_mean=None):
+        if initial_mean is not None:
+            self._mean = initial_mean.clone()
+        else:
+            self._mean = torch.zeros(
+                self.rollout_steps,
+                self.control_dim,
+                **self.tensor_args,
+            )
         self.update_ctrl_dist()
 
     def update_ctrl_dist(self):
