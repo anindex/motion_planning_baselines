@@ -123,7 +123,7 @@ class RRTStar(MPPlanner):
         initial_nodes = observation.get('initial_nodes', None)
         informed = observation.get('informed', False)
         eps = observation.get('eps', 1e-6)
-        print_freq = observation.get('print_freq', 50)
+        print_freq = observation.get('print_freq', 150)
         debug = observation.get('debug', False)
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
             return None
@@ -183,6 +183,7 @@ class RRTStar(MPPlanner):
         if goal_n is None:
             return None
         path = goal_n.retrace()
+        # return torch.stack(path, dim=0)
         return purge_duplicates_from_traj(path, eps=eps)
 
     def check_point_collision(self, pos, **observation):

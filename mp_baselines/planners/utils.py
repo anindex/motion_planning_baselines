@@ -34,10 +34,17 @@ def purge_duplicates_from_traj(path, eps=1e-5):
         return path
     if isinstance(path, list):
         path = torch.stack(path, dim=0)
-    path = to_numpy(path)
-    diff = np.diff(path, axis=-2)
-    # add last always, if same as second to last, second to last will not be selected
-    cond = np.concatenate([np.any(diff > eps, axis=-1), [True]])
-    reverse_doublicate_indices = np.where(cond)[0]
-    selection = path[reverse_doublicate_indices]
+    abs_diff = torch.abs(torch.diff(path, dim=-2))
+    row_idxs = torch.where(abs_diff > eps)[0].unique()
+    selection = path[row_idxs]
+    # Always add the first and last elements of the path
+    selection[0] = path[0]
+    selection[-1] = path[-1]
     return selection
+
+
+def get_collision_free_trajectories(trajs, obst_map):
+    trajs_idxs_not_in_collision = 1 - obst_map.get_collisions(trajs)
+    free_trajs_idxs = trajs_idxs_not_in_collision.all(dim=-1)
+    free_trajs = trajs[free_trajs_idxs, :, :]
+    return free_trajs
