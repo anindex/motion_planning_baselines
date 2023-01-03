@@ -3,7 +3,7 @@ import torch
 import random
 import matplotlib.pyplot as plt
 
-from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
+from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, get_sphere_field_from_list
 from torch_planning_objectives.fields.shape_distance_fields import MultiSphere
 from stoch_gpmp.costs.cost_functions import CostCollision, CostComposite
 from mp_baselines.planners.chomp import CHOMP
@@ -36,16 +36,13 @@ if __name__ == "__main__":
         random_gen=True,
         num_obst=10,
         rand_xy_limits=[[-7.5, 7.5], [-7.5, 7.5]],
-        rand_shape=[2, 2],
+        rand_rect_shape=[2, 2],
         tensor_args=tensor_args,
     )
     # For obst. generation
     random.seed(seed)
     obst_map, obst_list = generate_obstacle_map(**obst_params)
-    field = MultiSphere(tensor_args=tensor_args)
-    centers = obst_list[:, :2]
-    radii = obst_list[:, 2] / 2.
-    field.set_obst(centers, radii)
+    field = get_sphere_field_from_list(obst_list, tensor_args=tensor_args)
 
     #-------------------------------- Cost func. ---------------------------------
     sigma_coll = 1e-4
