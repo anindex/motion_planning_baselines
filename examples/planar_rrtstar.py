@@ -15,7 +15,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 100
+    opt_iters = 100
     step_size = 1.
     n_radius = 2.
     goal_prob = 0.05
@@ -50,8 +50,8 @@ if __name__ == "__main__":
 
     #-------------------------------- Planner ---------------------------------
     rrt_params = dict(
-        n_dofs=n_dof,
-        n_iters=n_iters,
+        n_dof=n_dof,
+        opt_iters=opt_iters,
         start_state=start_state,
         limits=limits,
         cost=obst_map,

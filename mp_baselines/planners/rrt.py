@@ -73,8 +73,8 @@ class RRTStar(MPPlanner):
 
     def __init__(
             self,
-            n_dofs: int,
-            n_iters: int,
+            n_dof: int,
+            opt_iters: int,
             start_state: torch.Tensor,
             limits: torch.Tensor,
             cost=None,
@@ -83,11 +83,12 @@ class RRTStar(MPPlanner):
             max_time: float = 60.,
             goal_prob: float = .1,
             goal_state: torch.Tensor = None,
-            tensor_args: dict = None
+            tensor_args: dict = None,
+            **kwargs
     ):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
-        self.n_dofs = n_dofs
-        self.n_iters = n_iters
+        self.n_dof = n_dof
+        self.opt_iters = opt_iters
 
         # RRTStar params
         self.step_size = step_size
@@ -127,7 +128,7 @@ class RRTStar(MPPlanner):
         print_freq = observation.get('print_freq', 10)
         debug = observation.get('debug', False)
         if opt_iters is None:
-            opt_iters = self.n_iters
+            opt_iters = self.opt_iters
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
@@ -135,7 +136,7 @@ class RRTStar(MPPlanner):
         start_time = time.time()
         iteration = 0
         # best_possible_cost = distance_fn(goal, start) # if straight line is possible
-        while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
+        while (elapsed_time(start_time) < self.max_time) and (iteration < self.opt_iters):
             do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
             s = self.goal_state if do_goal else self.sample_fn(**observation)
 
@@ -203,7 +204,7 @@ class RRTStar(MPPlanner):
         if collision > 0:
             return True
         # check in bounds
-        for d in range(self.n_dofs):
+        for d in range(self.n_dof):
             if pos[0, 0, d] < self.limits[d, 0] or pos[0, 0, d] > self.limits[d, 1]:
                 return True
         return False
@@ -221,7 +222,7 @@ class RRTStar(MPPlanner):
         """
         reject = True
         while reject:
-            pos = torch.rand(self.n_dofs, **self.tensor_args)
+            pos = torch.rand(self.n_dof, **self.tensor_args)
             pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
             reject = self.check_point_collision(pos, **observation)
             if reject:
@@ -235,7 +236,7 @@ class RRTStar(MPPlanner):
         if check_collision:
             return self.random_collision_free(**observation)
         else:
-            pos = torch.rand(self.n_dofs, **self.tensor_args)
+            pos = torch.rand(self.n_dof, **self.tensor_args)
             pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
             return pos
 

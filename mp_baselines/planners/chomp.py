@@ -9,10 +9,10 @@ class CHOMP(OptimizationPlanner):
 
     def __init__(
             self,
-            n_dofs: int,
+            n_dof: int,
             traj_len: int,
             num_particles_per_goal: int,
-            n_iters: int,
+            opt_iters: int,
             dt: float,
             start_state: torch.Tensor,
             cost=None,
@@ -24,13 +24,14 @@ class CHOMP(OptimizationPlanner):
             sigma_goal_init=0.001,
             sigma_gp_init=10.,
             pos_only: bool = True,
-            tensor_args: dict = None
+            tensor_args: dict = None,
+            **kwargs
     ):
         super(CHOMP, self).__init__(name='CHOMP',
-                                    n_dofs=n_dofs,
+                                    n_dof=n_dof,
                                     traj_len=traj_len,
                                     num_particles_per_goal=num_particles_per_goal,
-                                    n_iters=n_iters,
+                                    opt_iters=opt_iters,
                                     dt=dt,
                                     start_state=start_state,
                                     cost=cost,
@@ -121,7 +122,7 @@ class CHOMP(OptimizationPlanner):
         """
         optim_vis = observation.get('optim_vis', False)
         if opt_iters is None:
-            opt_iters = self.n_iters
+            opt_iters = self.opt_iters
         for opt_step in range(opt_iters):
             self._particle_means.requires_grad_(True)
             costs = self._eval(self._particle_means, **observation)

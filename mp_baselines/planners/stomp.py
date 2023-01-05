@@ -8,11 +8,11 @@ class STOMP(OptimizationPlanner):
 
     def __init__(
             self,
-            n_dofs: int,
+            n_dof: int,
             traj_len: int,
             num_particles_per_goal: int,
             num_samples: int,
-            n_iters: int,
+            opt_iters: int,
             dt: float,
             start_state: torch.Tensor,
             cost=None,
@@ -26,13 +26,14 @@ class STOMP(OptimizationPlanner):
             sigma_spectral: float = 0.1,
             goal_state: torch.Tensor = None,
             pos_only: bool = True,
-            tensor_args: dict = None
+            tensor_args: dict = None,
+            **kwargs
     ):
         super(STOMP, self).__init__(name='STOMP',
-                                    n_dofs=n_dofs,
+                                    n_dof=n_dof,
                                     traj_len=traj_len,
                                     num_particles_per_goal=num_particles_per_goal,
-                                    n_iters=n_iters,
+                                    opt_iters=opt_iters,
                                     dt=dt,
                                     start_state=start_state,
                                     cost=cost,
@@ -125,11 +126,11 @@ class STOMP(OptimizationPlanner):
         num_steps = self.traj_len - 1
         state_traj = torch.zeros(num_steps + 1, self.d_state_opt, **self.tensor_args)
         for i in range(num_steps + 1):
-            state_traj[i, :self.n_dofs] = start_state[:self.n_dofs] * (num_steps - i) * 1. / num_steps \
-                                  + goal_state[:self.n_dofs] * i * 1./num_steps
+            state_traj[i, :self.n_dof] = start_state[:self.n_dof] * (num_steps - i) * 1. / num_steps \
+                                  + goal_state[:self.n_dof] * i * 1./num_steps
         if not self.pos_only:
-            mean_vel = (goal_state[:self.n_dofs] - start_state[:self.n_dofs]) / (num_steps * self.dt)
-            state_traj[:, self.n_dofs:] = mean_vel.unsqueeze(0)
+            mean_vel = (goal_state[:self.n_dof] - start_state[:self.n_dof]) / (num_steps * self.dt)
+            state_traj[:, self.n_dof:] = mean_vel.unsqueeze(0)
         return state_traj
 
     def optimize(
@@ -152,7 +153,7 @@ class STOMP(OptimizationPlanner):
         """
         optim_vis = observation.get('optim_vis', False)
         if opt_iters is None:
-            opt_iters = self.n_iters
+            opt_iters = self.opt_iters
         for opt_step in range(opt_iters):
             self.costs = self._sample_and_eval()
             self._update_distribution(self.costs, self.state_particles)

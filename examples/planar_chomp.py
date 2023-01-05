@@ -54,10 +54,10 @@ if __name__ == "__main__":
 
     ## Planner - 2D point particle dynamics
     chomp_params = dict(
-        n_dofs=n_dof,
+        n_dof=n_dof,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
-        n_iters=1, # Keep this 1 for visualization
+        opt_iters=1, # Keep this 1 for visualization
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
