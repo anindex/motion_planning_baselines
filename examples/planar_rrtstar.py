@@ -85,6 +85,5 @@ if __name__ == "__main__":
     ax.plot(goal_state[0], goal_state[1], 'ro', markersize=7)
     ax.set_aspect('equal')
     if traj is not None:
-        traj = np.array(traj)
         ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
     plt.show()

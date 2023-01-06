@@ -34,10 +34,7 @@ def purge_duplicates_from_traj(path, eps=1e-5):
         return path
     if isinstance(path, list):
         path = torch.stack(path, dim=0)
-    path = to_numpy(path)
-    diff = np.diff(path, axis=-2)
-    # add last alway, if same as second to last, second to last will not be selected
-    cond = np.concatenate([np.any(diff > eps, axis=-1), [True]])
-    reverse_doublicate_indices = np.where(cond)[0]
-    selection = path[reverse_doublicate_indices]
+    diff = torch.diff(path, dim=-2).norm(dim=-1)
+    cond = torch.cat([diff > eps, torch.ones(1, dtype=torch.bool, device=diff.device)])
+    selection = path[cond]
     return selection
