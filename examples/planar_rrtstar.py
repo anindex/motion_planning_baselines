@@ -12,15 +12,15 @@ from mp_baselines.planners.rrt import RRTStar
 if __name__ == "__main__":
     # device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
     device = 'cpu'
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     n_dof = 2
-    opt_iters = 100
-    step_size = 1.
-    n_radius = 2.
+    opt_iters = 1000
+    step_size = 0.5
+    n_radius = 1.
     goal_prob = 0.05
     max_time = 60.
-    seed = 11
+    seed = int(time.time())
     start_state = torch.tensor([-9, -9], **tensor_args)
     goal_state = torch.tensor([9, 8], **tensor_args)
     limits = torch.tensor([[-10, 10], [-10, 10]], **tensor_args)
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         cell_size=cell_size,
         map_type='direct',
         random_gen=True,
-        num_obst=10,
+        num_obst=15,
         rand_xy_limits=[[-7.5, 7.5], [-7.5, 7.5]],
         rand_rect_shape=[2, 2],
         tensor_args=tensor_args,
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj = planner.optimize(debug=True, informed=True)
+    traj = planner.optimize(first_goal_return=True, debug=True, informed=True)
     print(f"{time.time() - start} seconds")
     
     #---------------------------------------------------------------------------

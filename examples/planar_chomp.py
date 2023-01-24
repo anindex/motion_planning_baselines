@@ -34,7 +34,7 @@ if __name__ == "__main__":
         cell_size=cell_size,
         map_type='direct',
         random_gen=True,
-        num_obst=10,
+        num_obst=15,
         rand_xy_limits=[[-7.5, 7.5], [-7.5, 7.5]],
         rand_rect_shape=[2, 2],
         tensor_args=tensor_args,

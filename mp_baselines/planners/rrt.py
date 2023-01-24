@@ -127,6 +127,7 @@ class RRTStar(MPPlanner):
         eps = observation.get('eps', 1e-6)
         print_freq = observation.get('print_freq', 10)
         debug = observation.get('debug', False)
+        first_goal_return = observation.get('first_goal_return', False)
         if opt_iters is None:
             opt_iters = self.opt_iters
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
@@ -164,6 +165,8 @@ class RRTStar(MPPlanner):
             if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
                 goal_n = new
                 goal_n.set_solution(True)
+                if first_goal_return:
+                    break
             # TODO - k-nearest neighbor version
 
             neighbors = filter(lambda n: self.distance_fn(n.config, new.config) < self.n_radius, self.nodes)
