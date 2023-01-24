@@ -78,6 +78,7 @@ class RRTStar(MPPlanner):
             start_state: torch.Tensor,
             limits: torch.Tensor,
             cost=None,
+            n_iters_after_success=None,
             step_size: float = 0.1,
             n_radius: float = 1.,
             max_time: float = 60.,
@@ -88,6 +89,8 @@ class RRTStar(MPPlanner):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
         self.n_dofs = n_dofs
         self.n_iters = n_iters
+
+        self.n_iters_after_success = n_iters_after_success
 
         # RRTStar params
         self.step_size = step_size
@@ -132,6 +135,7 @@ class RRTStar(MPPlanner):
         start_time = time.time()
         iteration = 0
         # best_possible_cost = distance_fn(goal, start) # if straight line is possible
+        iters_after_first_success = 0
         while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
             do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
             s = self.goal_state if do_goal else self.sample_fn(**observation)
@@ -180,6 +184,16 @@ class RRTStar(MPPlanner):
                     n_path = safe_path(self.extend_fn(new.config, n.config), self.collision_fn)[:]
                     if (len(n_path) != 0) and (self.distance_fn(n.config, n_path[-1]) < eps):
                         n.rewire(new, d, n_path[:-1], iteration=iteration)
+
+            # Stop if some iterations passed after the first success
+            success = goal_n is not None
+            if success:
+                iters_after_first_success += 1
+
+            if self.n_iters_after_success is not None:
+                if iters_after_first_success > self.n_iters_after_success:
+                    break
+
         if goal_n is None:
             return None
         path = goal_n.retrace()
