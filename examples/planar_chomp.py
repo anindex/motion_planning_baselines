@@ -45,7 +45,7 @@ if __name__ == "__main__":
     field = get_sphere_field_from_list(obst_list, tensor_args=tensor_args)
 
     #-------------------------------- Cost func. ---------------------------------
-    sigma_coll = 1e-4
+    sigma_coll = 2e-4
 
     # Construct cost function
     cost_obst_2D = CostCollision(n_dof, traj_len, field=field, sigma_coll=sigma_coll)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.5,
+        step_size=0.15,
         grad_clip=0.1,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     # opt_iters = 50
-    opt_iters = 100
+    opt_iters = 300
     # opt_iters = 1000
 
     traj_history = []

@@ -124,6 +124,20 @@ class OptimizationPlanner(MPPlanner):
             tensor_args=tensor_args,
         )
 
+    def const_vel_trajectories(
+        self,
+        start_state,
+        multi_goal_states,
+    ):
+        traj_dim = (multi_goal_states.shape[0], self.traj_len, self.dim)
+        state_traj = torch.zeros(traj_dim, **self.tensor_args)
+        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.traj_len * self.dt)
+        for i in range(self.traj_len):
+            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.traj_len - i - 1) / (self.traj_len - 1) \
+                                  + multi_goal_states[:, :self.n_dof] * i / (self.traj_len - 1)
+        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.traj_len, 1)
+        return state_traj
+
     def get_random_trajs(self):
         # force torch.float64
         tensor_args = dict(dtype=torch.float64, device=self.tensor_args['device'])

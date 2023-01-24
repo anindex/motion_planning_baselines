@@ -15,7 +15,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    traj_len = 64
+    traj_len = 128
     dt = 0.02
     num_particles_per_goal = 5
     num_samples = 64
@@ -45,10 +45,10 @@ if __name__ == "__main__":
     obst_map, obst_list = generate_obstacle_map(**obst_params)
 
     #-------------------------------- Cost func. ---------------------------------
-    sigma_coll = 1e-5
+    sigma_coll = 1e-4
     sigmas_prior = dict(
         sigma_start=0.001,
-        sigma_gp=0.1,
+        sigma_gp=0.2,
     )
 
     # Construct cost function
@@ -72,12 +72,12 @@ if __name__ == "__main__":
         start_state=start_state,
         cost=cost_composite,
         temperature=1.,
-        step_size=1,
-        sigma_spectral=0.08,
+        step_size=0.1,
+        sigma_spectral=0.1,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
         sigma_goal_init=0.001,
-        sigma_gp_init=20.,
+        sigma_gp_init=5.,
         pos_only=False,
         tensor_args=tensor_args,
     )

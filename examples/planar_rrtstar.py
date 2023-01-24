@@ -15,9 +15,10 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     n_dof = 2
-    opt_iters = 1000
-    step_size = 0.5
-    n_radius = 1.
+    opt_iters = 5000
+    num_particle_per_goal = 5
+    step_size = 1    
+    n_radius = 2.
     goal_prob = 0.05
     max_time = 60.
     seed = int(time.time())
@@ -67,7 +68,12 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj = planner.optimize(first_goal_return=True, debug=True, informed=True)
+    trajs = []
+    for i in range(num_particle_per_goal):
+        traj = planner.optimize(first_goal_return=True, debug=True, informed=True)
+        planner.reset()
+        if traj is not None:
+            trajs.append(traj)
     print(f"{time.time() - start} seconds")
     
     #---------------------------------------------------------------------------
@@ -78,12 +84,12 @@ if __name__ == "__main__":
     x = np.linspace(-10, 10, res)
     y = np.linspace(-10, 10, res)
     fig = plt.figure()
-    planner.render()
+    # planner.render()
     ax = fig.gca()
     cs = ax.contourf(x, y, obst_map.map, 20, cmap='Greys')
     ax.plot(start_state[0], start_state[1], 'go', markersize=7)
     ax.plot(goal_state[0], goal_state[1], 'ro', markersize=7)
     ax.set_aspect('equal')
-    if traj is not None:
+    for traj in trajs:
         ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
     plt.show()
