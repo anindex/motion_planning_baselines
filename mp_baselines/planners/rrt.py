@@ -77,7 +77,7 @@ class RRTStar(MPPlanner):
             opt_iters: int,
             start_state: torch.Tensor,
             limits: torch.Tensor,
-            cost=None,
+            collision_fn=None,
             step_size: float = 0.1,
             n_radius: float = 1.,
             max_time: float = 60.,
@@ -100,7 +100,7 @@ class RRTStar(MPPlanner):
         self.goal_state = goal_state
         self.limits = limits  # [min, max] for each dimension
 
-        self.cost = cost
+        self.collision_fn = collision_fn
         self.reset()
 
     def reset(self):
@@ -130,7 +130,7 @@ class RRTStar(MPPlanner):
         first_goal_return = observation.get('first_goal_return', False)
         if opt_iters is None:
             opt_iters = self.opt_iters
-        if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
+        if self.collision_fn(self.goal_state, **observation):
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
         goal_n = None
@@ -153,7 +153,7 @@ class RRTStar(MPPlanner):
             iteration += 1
 
             nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
-            extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
+            extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius).squeeze()
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
                 continue
@@ -177,7 +177,7 @@ class RRTStar(MPPlanner):
             for n in neighbors:
                 d = self.distance_fn(n.config, new.config)
                 if (n.cost + d) < new.cost:
-                    n_path = safe_path(self.extend_fn(n.config, new.config), self.collision_fn)[:]
+                    n_path = safe_path(self.extend_fn(n.config, new.config, max_step=self.step_size, max_dist=self.n_radius), self.collision_fn)[:]
                     n_dist = self.distance_fn(new.config, n_path[-1])
                     if (len(n_path) != 0) and (n_dist < eps):
                         # render(new.parent)
@@ -185,7 +185,7 @@ class RRTStar(MPPlanner):
             for n in neighbors:  # TODO - avoid repeating work
                 d = self.distance_fn(new.config, n.config)
                 if (new.cost + d) < n.cost:
-                    n_path = safe_path(self.extend_fn(new.config, n.config), self.collision_fn)[:]
+                    n_path = safe_path(self.extend_fn(new.config, n.config, max_step=self.step_size, max_dist=self.n_radius), self.collision_fn)[:]
                     if (len(n_path) != 0) and (self.distance_fn(n.config, n_path[-1]) < eps):
                         n.rewire(new, d, n_path[:-1], iteration=iteration)
         if goal_n is None:
@@ -194,23 +194,20 @@ class RRTStar(MPPlanner):
         return purge_duplicates_from_traj(path, eps=eps)
 
     def check_point_collision(self, pos, **observation):
+        collision_fn = observation.get('collision_fn', None)
         if pos.ndim == 1:
             pos = pos.unsqueeze(0).unsqueeze(0)  # add batch and traj len dim for interface
         elif pos.ndim == 2:
             pos = pos.unsqueeze(1)  # add traj len dim for interface
-        # do forward kinematics
-        fk_map = observation.get('fk', None)
-        pos_x = None
-        if fk_map is not None:
-            pos_x = fk_map(pos)
-        collision = self.cost.get_collisions(pos, x_trajs=pos_x, **observation).squeeze()
-        if collision > 0:
+        # check collisions
+        if collision_fn is None:
+            collision_fn = self.collision_fn
+        collision = collision_fn(pos, **observation).squeeze()
+        if collision.any():
             return True
         # check in bounds
-        for d in range(self.n_dof):
-            if pos[0, 0, d] < self.limits[d, 0] or pos[0, 0, d] > self.limits[d, 1]:
-                return True
-        return False
+        border_colls = (pos < self.limits[:, 0]) | (pos > self.limits[:, 1])
+        return border_colls.any()
 
     def check_line_collision(self, q1, q2, num_interp_points=15, **observation):
         alpha = torch.linspace(0, 1, num_interp_points + 2)[1:-1].to(**self.tensor_args)  # skip first and last
@@ -232,8 +229,8 @@ class RRTStar(MPPlanner):
                 continue
         return pos
 
-    def collision_fn(self, pos, pos_x=None, **observation):
-        return self.check_point_collision(pos, pos_x=pos_x, **observation)
+    def collision_fn(self, pos, **observation):
+        return self.check_point_collision(pos, **observation)
 
     def sample_fn(self, check_collision=True, **observation):
         if check_collision:
@@ -260,10 +257,3 @@ class RRTStar(MPPlanner):
 
     def render(self):
         self.nodes[0].render()
-
-    def _get_costs(self, state_trajectories, **observation):
-        if self.cost is None:
-            costs = torch.zeros(self.num_samples, )
-        else:
-            costs = self.cost.eval(state_trajectories, **observation)
-        return costs

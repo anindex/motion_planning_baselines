@@ -55,7 +55,7 @@ if __name__ == "__main__":
         opt_iters=opt_iters,
         start_state=start_state,
         limits=limits,
-        cost=obst_map,
+        collision_fn=obst_map.get_collisions,
         step_size=step_size,
         n_radius=n_radius,
         max_time=max_time,

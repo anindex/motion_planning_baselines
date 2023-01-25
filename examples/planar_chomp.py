@@ -61,7 +61,7 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.15,
+        step_size=0.05,
         grad_clip=0.1,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     # opt_iters = 50
-    opt_iters = 300
+    opt_iters = 600
     # opt_iters = 1000
 
     traj_history = []
