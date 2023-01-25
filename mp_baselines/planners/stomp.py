@@ -155,7 +155,7 @@ class STOMP(OptimizationPlanner):
         if opt_iters is None:
             opt_iters = self.opt_iters
         for opt_step in range(opt_iters):
-            self.costs = self._sample_and_eval()
+            self.costs = self._sample_and_eval(**observation)
             self._update_distribution(self.costs, self.state_particles)
             self._particle_means = self._particle_means.detach()
 
