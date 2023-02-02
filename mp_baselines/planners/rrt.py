@@ -107,6 +107,7 @@ class RRTStar(MPPlanner):
 
     def reset(self):
         self.nodes = []
+        self.nodes_torch = None
 
     def optimize(
             self,
@@ -131,6 +132,7 @@ class RRTStar(MPPlanner):
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
+        self.nodes_torch = initial_nodes if initial_nodes is not None else OptimalNode(self.start_state).config
         goal_n = None
         start_time = time.time()
         iteration = 0
@@ -152,7 +154,11 @@ class RRTStar(MPPlanner):
 
             iteration += 1
 
+            # nearest node
             nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
+
+            distance = self.distance_fn(self.nodes_torch, s)
+
             extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
@@ -214,9 +220,9 @@ class RRTStar(MPPlanner):
         if collision > 0:
             return True
         # check in bounds
-        for d in range(self.n_dofs):
-            if pos[0, 0, d] < self.limits[d, 0] or pos[0, 0, d] > self.limits[d, 1]:
-                return True
+        if torch.any(torch.logical_or(torch.less(pos[0, 0, :], self.limits[:, 0]),
+                                      torch.greater(pos[0, 0, :], self.limits[:, 1]))):
+            return True
         return False
 
     def check_line_collision(self, q1, q2, num_interp_points=15, **observation):
