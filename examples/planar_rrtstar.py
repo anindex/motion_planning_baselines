@@ -6,7 +6,7 @@ import numpy as np
 
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
 from stoch_gpmp.costs.cost_functions import CostCollision, CostComposite
-from mp_baselines.planners.rrt import RRTStar
+from mp_baselines.planners.rrt_star import RRTStar
 
 
 if __name__ == "__main__":

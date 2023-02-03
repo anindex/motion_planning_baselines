@@ -13,13 +13,28 @@ def argmin(function, sequence):
     return sequence[min_idx]
 
 
+# def safe_path(sequence, collision):
+#     path = []
+#     for q in sequence:
+#         if collision(q):
+#             break
+#         path.append(q)
+#     return path
+
 def safe_path(sequence, collision):
-    path = []
-    for q in sequence:
-        if collision(q):
-            break
-        path.append(q)
-    return path
+    in_collision = collision(sequence)
+    idxs = torch.argwhere(in_collision)
+    if idxs.nelement() == 0:
+        if sequence.ndim == 1:
+            return sequence.reshape((1, -1))
+        return sequence[-1].reshape((1, -1))
+    else:
+        first_idx_in_collision = idxs[0]
+        if first_idx_in_collision == 0:
+            # the first point in the sequence is in collision
+            return []
+        # return the point immediate before the one in collision
+        return sequence[first_idx_in_collision-1]
 
 
 def to_numpy(x, dtype=np.float32):

@@ -1,3 +1,7 @@
+import math
+import sys
+
+import numpy as np
 import torch
 import time
 import matplotlib.pyplot as plt
@@ -68,7 +72,6 @@ class OptimalNode:
     __repr__ = __str__
 
 
-
 class RRTStar(MPPlanner):
 
     def __init__(
@@ -81,6 +84,7 @@ class RRTStar(MPPlanner):
             n_iters_after_success=None,
             step_size: float = 0.1,
             n_radius: float = 1.,
+            n_knn: int = 0,
             max_time: float = 60.,
             goal_prob: float = .1,
             goal_state: torch.Tensor = None,
@@ -95,6 +99,8 @@ class RRTStar(MPPlanner):
         # RRTStar params
         self.step_size = step_size
         self.n_radius = n_radius
+        assert n_knn >= 0, "knn parameter is < 0"
+        self.n_knn = n_knn
         self.max_time = max_time
         self.goal_prob = goal_prob
 
@@ -107,6 +113,7 @@ class RRTStar(MPPlanner):
 
     def reset(self):
         self.nodes = []
+        self.nodes_torch = None
 
     def optimize(
             self,
@@ -131,6 +138,7 @@ class RRTStar(MPPlanner):
         if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
+        self.nodes_torch = initial_nodes if initial_nodes is not None else OptimalNode(self.start_state).config
         goal_n = None
         start_time = time.time()
         iteration = 0
@@ -152,38 +160,63 @@ class RRTStar(MPPlanner):
 
             iteration += 1
 
-            nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
+            # nearest node
+            # nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
+            distances = self.distance_fn(self.nodes_torch, s)
+            min_idx = torch.argmin(distances)
+            nearest = self.nodes[min_idx]
+
             extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
                 continue
             new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
-                nearest.config, path[-1]), path=path[:-1], iteration=iteration)
+                nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
 
             if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
                 goal_n = new
                 goal_n.set_solution(True)
 
-            # TODO - k-nearest neighbor version
-            neighbors = filter(lambda n: self.distance_fn(n.config, new.config) < self.n_radius, self.nodes)
-            neighbors = list(neighbors)  # Make list so both for loops can loop over it!
             self.nodes.append(new)
+            self.nodes_torch = torch.vstack((self.nodes_torch, new.config))
+
+            # Get neighbors of new node
+            distances = self.distance_fn(self.nodes_torch, new.config)
+            if self.n_knn > 0:
+                # https://discuss.pytorch.org/t/k-nearest-neighbor-in-pytorch/59695
+                knn = distances.topk(min(self.n_knn, len(distances)), largest=False)
+                neighbors_idxs = knn.indices
+            else:
+                neighbors_idxs = torch.argwhere(distances < self.n_radius)
+
+            if neighbors_idxs.nelement() != 0:
+                nodes_np = np.array(self.nodes)
+                neighbors = nodes_np[neighbors_idxs.squeeze()]
+                if neighbors_idxs.nelement() == 1:
+                    neighbors = [neighbors]
+            else:
+                neighbors = []
 
             # TODO: smooth solution once found to improve the cost bound
-            for n in neighbors:
-                d = self.distance_fn(n.config, new.config)
-                if (n.cost + d) < new.cost:
-                    n_path = safe_path(self.extend_fn(n.config, new.config), self.collision_fn)[:]
-                    n_dist = self.distance_fn(new.config, n_path[-1])
-                    if (len(n_path) != 0) and (n_dist < eps):
-                        new.rewire(n, d, n_path[:-1], iteration=iteration)
+            # for n in neighbors:
+            #     d = self.distance_fn(n.config, new.config)
+            #     if (n.cost + d) < new.cost:
+            #         extended = self.extend_fn(n.config, new.config, max_step=self.step_size, max_dist=self.n_radius)
+            #         n_path = safe_path(extended, self.collision_fn)[:]
+            #         if len(n_path) != 0:
+            #             n_dist = self.distance_fn(new.config, n_path[-1])
+            #             if n_dist < eps:
+            #                 new.rewire(n, d, list(n_path[:-1]), iteration=iteration)
             # TODO - avoid repeating work
             for n in neighbors:
-                d = self.distance_fn(new.config, n.config)
+                d = self.distance_fn(n.config, new.config)
                 if (new.cost + d) < n.cost:
-                    n_path = safe_path(self.extend_fn(new.config, n.config), self.collision_fn)[:]
-                    if (len(n_path) != 0) and (self.distance_fn(n.config, n_path[-1]) < eps):
-                        n.rewire(new, d, n_path[:-1], iteration=iteration)
+                    extended = self.extend_fn(new.config, n.config, max_step=self.step_size, max_dist=self.n_radius)
+                    n_path = safe_path(extended, self.collision_fn)[:]
+                    if len(n_path) != 0:
+                        n_dist = self.distance_fn(n.config, n_path[-1])
+                        if n_dist < eps:
+                            n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
 
             # Stop if some iterations passed after the first success
             success = goal_n is not None
@@ -205,19 +238,19 @@ class RRTStar(MPPlanner):
             pos = pos.unsqueeze(0).unsqueeze(0)  # add batch and traj len dim for interface
         elif pos.ndim == 2:
             pos = pos.unsqueeze(1)  # add traj len dim for interface
+        # check in bounds
+        if torch.any(torch.logical_or(torch.less(pos[0, 0, :], self.limits[:, 0]),
+                                      torch.greater(pos[0, 0, :], self.limits[:, 1]))):
+            return True
         # do forward kinematics
         fk_map = observation.get('fk', None)
         pos_x = None
         if fk_map is not None:
             pos_x = fk_map(pos)
+
+        # collision in task space
         collision = self.cost.get_collisions(pos, x_trajs=pos_x, **observation).squeeze()
-        if collision > 0:
-            return True
-        # check in bounds
-        for d in range(self.n_dofs):
-            if pos[0, 0, d] < self.limits[d, 0] or pos[0, 0, d] > self.limits[d, 1]:
-                return True
-        return False
+        return collision > 0
 
     def check_line_collision(self, q1, q2, num_interp_points=15, **observation):
         alpha = torch.linspace(0, 1, num_interp_points + 2)[1:-1].to(**self.tensor_args)  # skip first and last
@@ -228,15 +261,27 @@ class RRTStar(MPPlanner):
     
     def random_collision_free(self, **observation):
         """
-        Returns: random positions in environment space
+        Returns: random positions in environment space not in collision
         """
+        # sample a batch of random points and pick one that is not in collision
         reject = True
-        while reject:
-            pos = torch.rand(self.n_dofs, **self.tensor_args)
+        for i in range(1000):
+            pos = torch.rand((100, self.n_dofs), **self.tensor_args)
             pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
-            reject = self.check_point_collision(pos, **observation)
-            if reject:
+            in_collision = self.check_point_collision(pos, **observation)
+            idxs_not_in_collision = torch.argwhere(in_collision == False)
+            if idxs_not_in_collision.nelement() == 0:
+                # all points are in collision
                 continue
+            # pick a random point not in collision
+            idx_random = torch.randperm(len(idxs_not_in_collision))[0].item()
+            pos = pos[idxs_not_in_collision[idx_random]].squeeze()
+            reject = False
+            break
+
+        if reject:
+            sys.exit("Could not find a collision free configuration")
+
         return pos
 
     def collision_fn(self, pos, pos_x=None, **observation):
@@ -274,4 +319,5 @@ class RRTStar(MPPlanner):
         else:
             costs = self.cost.eval(state_trajectories, **observation)
         return costs
+
 
