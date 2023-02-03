@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import time
 import matplotlib.pyplot as plt
@@ -155,41 +156,53 @@ class RRTStar(MPPlanner):
             iteration += 1
 
             # nearest node
-            nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
-
-            distance = self.distance_fn(self.nodes_torch, s)
+            # nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
+            distances = self.distance_fn(self.nodes_torch, s)
+            min_idx = torch.argmin(distances)
+            nearest = self.nodes[min_idx]
 
             extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
                 continue
             new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
-                nearest.config, path[-1]), path=path[:-1], iteration=iteration)
+                nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
 
             if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
                 goal_n = new
                 goal_n.set_solution(True)
 
-            # TODO - k-nearest neighbor version
-            neighbors = filter(lambda n: self.distance_fn(n.config, new.config) < self.n_radius, self.nodes)
-            neighbors = list(neighbors)  # Make list so both for loops can loop over it!
             self.nodes.append(new)
+            self.nodes_torch = torch.vstack((self.nodes_torch, new.config))
+            # TODO - k-nearest neighbor version
+            # https://discuss.pytorch.org/t/k-nearest-neighbor-in-pytorch/59695
+            neighbors_idxs = torch.argwhere(self.distance_fn(self.nodes_torch, new.config) < self.n_radius)
+            if neighbors_idxs.nelement() != 0:
+                nodes_np = np.array(self.nodes)
+                neighbors = nodes_np[neighbors_idxs.squeeze()]
+                if neighbors_idxs.nelement() == 1:
+                    neighbors = [neighbors]
+            else:
+                neighbors = []
 
             # TODO: smooth solution once found to improve the cost bound
             for n in neighbors:
                 d = self.distance_fn(n.config, new.config)
                 if (n.cost + d) < new.cost:
                     n_path = safe_path(self.extend_fn(n.config, new.config), self.collision_fn)[:]
-                    n_dist = self.distance_fn(new.config, n_path[-1])
-                    if (len(n_path) != 0) and (n_dist < eps):
-                        new.rewire(n, d, n_path[:-1], iteration=iteration)
+                    if (len(n_path) != 0):
+                        n_dist = self.distance_fn(new.config, n_path[-1])
+                        if (n_dist < eps):
+                            new.rewire(n, d, list(n_path[:-1]), iteration=iteration)
             # TODO - avoid repeating work
             for n in neighbors:
-                d = self.distance_fn(new.config, n.config)
+                d = self.distance_fn(n.config, new.config)
                 if (new.cost + d) < n.cost:
                     n_path = safe_path(self.extend_fn(new.config, n.config), self.collision_fn)[:]
-                    if (len(n_path) != 0) and (self.distance_fn(n.config, n_path[-1]) < eps):
-                        n.rewire(new, d, n_path[:-1], iteration=iteration)
+                    if (len(n_path) != 0):
+                        n_dist = self.distance_fn(new.config, n_path[-1])
+                        if (n_dist < eps):
+                            n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
 
             # Stop if some iterations passed after the first success
             success = goal_n is not None
@@ -211,19 +224,19 @@ class RRTStar(MPPlanner):
             pos = pos.unsqueeze(0).unsqueeze(0)  # add batch and traj len dim for interface
         elif pos.ndim == 2:
             pos = pos.unsqueeze(1)  # add traj len dim for interface
+        # check in bounds
+        if torch.any(torch.logical_or(torch.less(pos[0, 0, :], self.limits[:, 0]),
+                                      torch.greater(pos[0, 0, :], self.limits[:, 1]))):
+            return True
         # do forward kinematics
         fk_map = observation.get('fk', None)
         pos_x = None
         if fk_map is not None:
             pos_x = fk_map(pos)
+
+        # collision in task space
         collision = self.cost.get_collisions(pos, x_trajs=pos_x, **observation).squeeze()
-        if collision > 0:
-            return True
-        # check in bounds
-        if torch.any(torch.logical_or(torch.less(pos[0, 0, :], self.limits[:, 0]),
-                                      torch.greater(pos[0, 0, :], self.limits[:, 1]))):
-            return True
-        return False
+        return collision > 0
 
     def check_line_collision(self, q1, q2, num_interp_points=15, **observation):
         alpha = torch.linspace(0, 1, num_interp_points + 2)[1:-1].to(**self.tensor_args)  # skip first and last

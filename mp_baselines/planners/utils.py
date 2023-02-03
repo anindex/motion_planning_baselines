@@ -14,12 +14,15 @@ def argmin(function, sequence):
 
 
 def safe_path(sequence, collision):
-    path = []
-    for q in sequence:
-        if collision(q):
-            break
-        path.append(q)
-    return path
+    in_collision = collision(sequence)
+    idxs = torch.argwhere(in_collision)
+    if idxs.nelement() == 0:
+        return sequence
+    else:
+        first_q_free_idx = idxs[0]
+        if first_q_free_idx == 0:
+            return []
+        return sequence[:first_q_free_idx+1]
 
 
 def to_numpy(x, dtype=np.float32):
