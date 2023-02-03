@@ -31,9 +31,10 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 1000
-    step_size = 0.05
+    n_iters = 2000
+    step_size = 0.01
     n_radius = 0.1
+    n_knn = 100
     goal_prob = 0.1
     max_time = 60.
     seed = 18
@@ -68,6 +69,7 @@ if __name__ == "__main__":
         cost=obst_map,
         step_size=step_size,
         n_radius=n_radius,
+        n_knn=n_knn,
         max_time=max_time,
         goal_prob=goal_prob,
         goal_state=goal_state,

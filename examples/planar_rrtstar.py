@@ -15,9 +15,10 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 500
-    step_size = 1.
+    n_iters = 2000
+    step_size = 0.1
     n_radius = 2.
+    n_knn = 100
     goal_prob = 0.05
     max_time = 60.
     seed = 17
@@ -58,6 +59,7 @@ if __name__ == "__main__":
         cost=obst_map,
         step_size=step_size,
         n_radius=n_radius,
+        n_knn=n_knn,
         max_time=max_time,
         goal_prob=goal_prob,
         goal_state=goal_state,
@@ -75,7 +77,7 @@ if __name__ == "__main__":
     # Plotting
 
     import numpy as np
-    res = 200
+    res = obst_map.map.shape[0]
     x = np.linspace(-10, 10, res)
     y = np.linspace(-10, 10, res)
     fig = plt.figure()
