@@ -23,13 +23,13 @@ def argmin(function, sequence):
 
 def safe_path(sequence, collision):
     in_collision = collision(sequence)
-    idxs = torch.argwhere(in_collision)
-    if idxs.nelement() == 0:
+    idxs_in_collision = torch.argwhere(in_collision)
+    if idxs_in_collision.nelement() == 0:
         if sequence.ndim == 1:
             return sequence.reshape((1, -1))
         return sequence[-1].reshape((1, -1))
     else:
-        first_idx_in_collision = idxs[0]
+        first_idx_in_collision = idxs_in_collision[0]
         if first_idx_in_collision == 0:
             # the first point in the sequence is in collision
             return []

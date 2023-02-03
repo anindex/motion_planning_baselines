@@ -212,7 +212,7 @@ class RRTStar(MPPlanner):
                 d = self.distance_fn(n.config, new.config)
                 if (new.cost + d) < n.cost:
                     extended = self.extend_fn(new.config, n.config, max_step=self.step_size, max_dist=self.n_radius)
-                    n_path = safe_path(extended, self.collision_fn)[:]
+                    n_path = safe_path(extended, self.collision_fn)
                     if len(n_path) != 0:
                         n_dist = self.distance_fn(n.config, n_path[-1])
                         if n_dist < eps:
