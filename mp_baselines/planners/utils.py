@@ -13,14 +13,6 @@ def argmin(function, sequence):
     return sequence[min_idx]
 
 
-# def safe_path(sequence, collision):
-#     path = []
-#     for q in sequence:
-#         if collision(q):
-#             break
-#         path.append(q)
-#     return path
-
 def safe_path(sequence, collision):
     in_collision = collision(sequence)
     idxs_in_collision = torch.argwhere(in_collision)
@@ -45,18 +37,22 @@ def to_numpy(x, dtype=np.float32):
 
 
 def purge_duplicates_from_traj(path, eps=1e-6):
+    # Remove duplicated points from a trajectory
     if len(path) < 2:
         return path
     if isinstance(path, list):
         path = torch.stack(path, dim=0)
     if path.shape[0] == 2:
         return path
+
     abs_diff = torch.abs(torch.diff(path, dim=-2))
-    row_idxs = torch.where(abs_diff > eps)[0].unique()
+    row_idxs = torch.argwhere(torch.all((abs_diff > eps) == False, dim=-1) == False).unique()
     selection = path[row_idxs]
     # Always add the first and last elements of the path
-    selection[0] = path[0]
-    selection[-1] = path[-1]
+    if torch.allclose(selection[0], path[0]) is False:
+        selection = torch.cat((path[0].view(1, -1), selection), dim=0)
+    if torch.allclose(selection[-1], path[-1]) is False:
+        selection = torch.cat((selection, path[-1].view(1, -1)), dim=0)
     return selection
 
 

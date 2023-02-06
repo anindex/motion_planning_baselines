@@ -13,7 +13,7 @@ from torch_planning_objectives.fields.occupancy_map.obst_map import ObstacleCirc
 def create_grid_circles(rows=5, cols=5, radius=0.1):
     # Generates a grid (rows, cols) of circles
     circles = np.empty((rows*cols, 3), dtype=np.float32)
-    distance_from_wall = 0.35
+    distance_from_wall = 0.1
     centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
     centers_y = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, rows)
     X, Y = np.meshgrid(centers_x, centers_y)
@@ -31,8 +31,9 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 1000
-    max_best_cost_iters = 3000
+    n_iters = 30000
+    max_best_cost_iters = 500
+    cost_eps = 1e-2
     step_size = 0.01
     n_radius = 0.1
     n_knn = 5
@@ -47,9 +48,9 @@ if __name__ == "__main__":
     cell_size = 0.01
     map_dim = [2, 2]
 
-    rows = 5
-    cols = 5
-    radius = 0.1
+    rows = 10
+    cols = 10
+    radius = 0.075
     circles, obst_list = create_grid_circles(rows, cols, radius)
 
     obst_params = dict(
@@ -66,6 +67,7 @@ if __name__ == "__main__":
         n_dofs=n_dof,
         n_iters=n_iters,
         max_best_cost_iters=max_best_cost_iters,
+        cost_eps=cost_eps,
         start_state=start_state,
         limits=limits,
         cost=obst_map,

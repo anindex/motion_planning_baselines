@@ -84,6 +84,7 @@ class RRTStar(MPPlanner):
             cost=None,
             n_iters_after_success=None,
             max_best_cost_iters: int = 1000,
+            cost_eps: float = 1e-2,
             step_size: float = 0.1,
             n_radius: float = 1.,
             n_knn: int = 0,
@@ -98,7 +99,7 @@ class RRTStar(MPPlanner):
 
         self.n_iters_after_success = n_iters_after_success
         self.max_best_cost_iters = max_best_cost_iters
-        self.cost_eps = 1e-4
+        self.cost_eps = cost_eps
 
         # RRTStar params
         self.step_size = step_size
@@ -131,7 +132,7 @@ class RRTStar(MPPlanner):
 
     def _run_optimization(self, opt_iters, **observation):
         """
-            Run optimization iterations.
+        Run optimization iterations.
         """
         optim_vis = observation.get('optim_vis', False)
         initial_nodes = observation.get('initial_nodes', None)
@@ -240,9 +241,10 @@ class RRTStar(MPPlanner):
         if goal_n is None:
             return None
 
+        # get path from start to goal
         path = goal_n.retrace()
 
-        return purge_duplicates_from_traj(path, eps=eps)
+        return purge_duplicates_from_traj(path, eps=1e-6)
 
     @staticmethod
     def print_info(iteration, start_time, success, goal_n):
