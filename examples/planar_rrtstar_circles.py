@@ -31,10 +31,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    n_iters = 2000
+    n_iters = 1000
+    max_best_cost_iters = 3000
     step_size = 0.01
     n_radius = 0.1
-    n_knn = 100
+    n_knn = 5
     goal_prob = 0.1
     max_time = 60.
     seed = 18
@@ -64,6 +65,7 @@ if __name__ == "__main__":
     rrt_params = dict(
         n_dofs=n_dof,
         n_iters=n_iters,
+        max_best_cost_iters=max_best_cost_iters,
         start_state=start_state,
         limits=limits,
         cost=obst_map,

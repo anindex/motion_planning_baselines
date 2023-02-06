@@ -44,11 +44,13 @@ def to_numpy(x, dtype=np.float32):
     return np.array(x).astype(dtype)
 
 
-def purge_duplicates_from_traj(path, eps=1e-5):
+def purge_duplicates_from_traj(path, eps=1e-6):
     if len(path) < 2:
         return path
     if isinstance(path, list):
         path = torch.stack(path, dim=0)
+    if path.shape[0] == 2:
+        return path
     abs_diff = torch.abs(torch.diff(path, dim=-2))
     row_idxs = torch.where(abs_diff > eps)[0].unique()
     selection = path[row_idxs]

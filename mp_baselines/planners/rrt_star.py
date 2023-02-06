@@ -1,5 +1,6 @@
 import math
 import sys
+from copy import copy
 
 import numpy as np
 import torch
@@ -82,6 +83,7 @@ class RRTStar(MPPlanner):
             limits: torch.Tensor,
             cost=None,
             n_iters_after_success=None,
+            max_best_cost_iters: int = 1000,
             step_size: float = 0.1,
             n_radius: float = 1.,
             n_knn: int = 0,
@@ -95,6 +97,8 @@ class RRTStar(MPPlanner):
         self.n_iters = n_iters
 
         self.n_iters_after_success = n_iters_after_success
+        self.max_best_cost_iters = max_best_cost_iters
+        self.cost_eps = 1e-4
 
         # RRTStar params
         self.step_size = step_size
@@ -140,32 +144,54 @@ class RRTStar(MPPlanner):
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
         self.nodes_torch = initial_nodes if initial_nodes is not None else OptimalNode(self.start_state).config
         goal_n = None
-        start_time = time.time()
-        iteration = 0
-        # best_possible_cost = distance_fn(goal, start) # if straight line is possible
+        iteration = -1
         iters_after_first_success = 0
+        best_cost_iters = 0
+        best_cost_eps = torch.inf
+        success = False
+
+        # best_possible_cost = distance_fn(goal, start) # if straight line is possible
+        start_time = time.time()
         while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
+            iteration += 1
+
+            # Stop if the cost does not improve over iterations
+            if best_cost_iters >= self.max_best_cost_iters:
+                break
+            if goal_n is not None:
+                if goal_n.cost < best_cost_eps - self.cost_eps:
+                    best_cost_eps = copy(goal_n.cost)
+                    best_cost_iters = 0
+                else:
+                    best_cost_iters += 1
+
+            # Stop if the cost does not improve over  iterations passed after the first success
+            success = goal_n is not None
+            if success:
+                iters_after_first_success += 1
+            if self.n_iters_after_success is not None:
+                if iters_after_first_success > self.n_iters_after_success:
+                    break
+
+            # Sample new node
             do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
             s = self.goal_state if do_goal else self.sample_fn(**observation)
+
+            if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
+                if debug:
+                    self.print_info(iteration, start_time, success, goal_n)
 
             # Informed RRT*
             if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
                 continue
-            if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
-                success = goal_n is not None
-                cost = goal_n.cost if success else torch.inf
-                if debug:
-                    print('Iteration: {} | Time: {:.3f} | Success: {} | {} | Cost: {:.4f}'.format(
-                        iteration, elapsed_time(start_time), success, do_goal, cost))
 
-            iteration += 1
-
-            # nearest node
+            # nearest node to the sampled node
             # nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
             distances = self.distance_fn(self.nodes_torch, s)
             min_idx = torch.argmin(distances)
             nearest = self.nodes[min_idx]
 
+            # create a safe path from the sampled node to the nearest node
             extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
@@ -177,6 +203,7 @@ class RRTStar(MPPlanner):
                 goal_n = new
                 goal_n.set_solution(True)
 
+            # Append the node to the tree
             self.nodes.append(new)
             self.nodes_torch = torch.vstack((self.nodes_torch, new.config))
 
@@ -197,17 +224,7 @@ class RRTStar(MPPlanner):
             else:
                 neighbors = []
 
-            # TODO: smooth solution once found to improve the cost bound
-            # for n in neighbors:
-            #     d = self.distance_fn(n.config, new.config)
-            #     if (n.cost + d) < new.cost:
-            #         extended = self.extend_fn(n.config, new.config, max_step=self.step_size, max_dist=self.n_radius)
-            #         n_path = safe_path(extended, self.collision_fn)[:]
-            #         if len(n_path) != 0:
-            #             n_dist = self.distance_fn(new.config, n_path[-1])
-            #             if n_dist < eps:
-            #                 new.rewire(n, d, list(n_path[:-1]), iteration=iteration)
-            # TODO - avoid repeating work
+            # Rewire - update parents
             for n in neighbors:
                 d = self.distance_fn(n.config, new.config)
                 if (new.cost + d) < n.cost:
@@ -218,20 +235,19 @@ class RRTStar(MPPlanner):
                         if n_dist < eps:
                             n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
 
-            # Stop if some iterations passed after the first success
-            success = goal_n is not None
-            if success:
-                iters_after_first_success += 1
-
-            if self.n_iters_after_success is not None:
-                if iters_after_first_success > self.n_iters_after_success:
-                    break
+        self.print_info(iteration, start_time, success, goal_n)
 
         if goal_n is None:
             return None
+
         path = goal_n.retrace()
-        # return torch.stack(path, dim=0)
+
         return purge_duplicates_from_traj(path, eps=eps)
+
+    @staticmethod
+    def print_info(iteration, start_time, success, goal_n):
+        print('Iteration: {} | Time: {:.3f} | Success: {} | Cost: {:.10f}'.format(
+            iteration, elapsed_time(start_time), success, goal_n.cost if success else torch.inf))
 
     def check_point_collision(self, pos, **observation):
         if pos.ndim == 1:
