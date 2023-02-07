@@ -1,6 +1,7 @@
 import math
 import sys
 from copy import copy
+from operator import itemgetter
 
 import numpy as np
 import torch
@@ -223,9 +224,8 @@ class RRTStar(MPPlanner):
                 neighbors_idxs = torch.argwhere(distances < self.n_radius)
 
             if neighbors_idxs.nelement() != 0:
-                nodes_np = np.array(self.nodes)
-                neighbors = nodes_np[neighbors_idxs.squeeze()]
-                if neighbors_idxs.nelement() == 1:
+                neighbors = list(itemgetter(*neighbors_idxs.squeeze().cpu().numpy())(self.nodes))
+                if len(neighbors) == 1:
                     neighbors = [neighbors]
             else:
                 neighbors = []
