@@ -98,7 +98,7 @@ class RRTStar(MPPlanner):
         self.n_iters = n_iters
 
         self.n_iters_after_success = n_iters_after_success
-        self.max_best_cost_iters = max_best_cost_iters
+        self.max_best_cost_iters = max_best_cost_iters if max_best_cost_iters is not None else n_iters
         self.cost_eps = cost_eps
 
         # RRTStar params
