@@ -91,7 +91,9 @@ class RRTStar(MPPlanner):
             max_time: float = 60.,
             goal_prob: float = .1,
             goal_state: torch.Tensor = None,
-            tensor_args: dict = None
+            tensor_args: dict = None,
+            rrt_sample_fn=None,
+            rrt_sample_fn_fraction=0.5,
     ):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
         self.n_dofs = n_dofs
@@ -112,6 +114,9 @@ class RRTStar(MPPlanner):
         self.start_state = start_state
         self.goal_state = goal_state
         self.limits = limits  # [min, max] for each dimension
+
+        self.rrt_sample_fn = rrt_sample_fn
+        self.rrt_sample_fn_fraction = rrt_sample_fn_fraction
 
         self.cost = cost
         self.reset()
@@ -281,24 +286,29 @@ class RRTStar(MPPlanner):
         """
         Returns: random positions in environment space not in collision
         """
-        # sample a batch of random points and pick one that is not in collision
-        reject = True
-        for i in range(1000):
-            pos = torch.rand((100, self.n_dofs), **self.tensor_args)
-            pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
-            in_collision = self.check_point_collision(pos, **observation)
-            idxs_not_in_collision = torch.argwhere(in_collision == False)
-            if idxs_not_in_collision.nelement() == 0:
-                # all points are in collision
-                continue
-            # pick a random point not in collision
-            idx_random = torch.randperm(len(idxs_not_in_collision))[0].item()
-            pos = pos[idxs_not_in_collision[idx_random]].squeeze()
-            reject = False
-            break
+        if self.rrt_sample_fn is not None and np.random.rand() < self.rrt_sample_fn_fraction:
+            pos = self.rrt_sample_fn()
+        else:
+            # sample a batch of random points and pick one that is not in collision
+            n_points = 100
+            max_tries = 1000
+            reject = True
+            for i in range(max_tries):
+                pos = torch.rand((n_points, self.n_dofs), **self.tensor_args)
+                pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
+                in_collision = self.check_point_collision(pos, **observation)
+                idxs_not_in_collision = torch.argwhere(in_collision == False)
+                if idxs_not_in_collision.nelement() == 0:
+                    # all points are in collision
+                    continue
+                # pick a random point not in collision
+                idx_random = torch.randperm(len(idxs_not_in_collision))[0].item()
+                pos = pos[idxs_not_in_collision[idx_random]].squeeze()
+                reject = False
+                break
 
-        if reject:
-            sys.exit("Could not find a collision free configuration")
+            if reject:
+                sys.exit("Could not find a collision free configuration")
 
         return pos
 
