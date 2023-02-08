@@ -93,8 +93,8 @@ class RRTStar(MPPlanner):
             goal_prob: float = .1,
             goal_state: torch.Tensor = None,
             tensor_args: dict = None,
-            rrt_sample_fn=None,
-            rrt_sample_fn_fraction=0.5,
+            n_pre_samples=1000,
+            pre_samples=None
     ):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
         self.n_dofs = n_dofs
@@ -116,8 +116,9 @@ class RRTStar(MPPlanner):
         self.goal_state = goal_state
         self.limits = limits  # [min, max] for each dimension
 
-        self.rrt_sample_fn = rrt_sample_fn
-        self.rrt_sample_fn_fraction = rrt_sample_fn_fraction
+        self.n_pre_samples = n_pre_samples
+        self.pre_samples = pre_samples
+        self.last_sample_idx = None
 
         self.cost = cost
         self.reset()
@@ -125,6 +126,47 @@ class RRTStar(MPPlanner):
     def reset(self):
         self.nodes = []
         self.nodes_torch = None
+
+        # Create pre collision-free samples
+        n_uniform_samples = self.n_pre_samples - (self.pre_samples.shape[0] if self.pre_samples is not None else 0)
+        uniform_samples = self.create_uniform_samples(n_uniform_samples)
+        if self.pre_samples is not None:
+            self.pre_samples = torch.cat((self.pre_samples, uniform_samples), dim=0)
+        else:
+            self.pre_samples = uniform_samples
+
+    def create_uniform_samples(self, n_samples, total_samples_same_time=1000, **observation):
+        max_tries = 1000
+        reject = True
+        samples = torch.zeros((n_samples, self.n_dofs), **self.tensor_args)
+        idx_begin = 0
+        for i in range(max_tries):
+            pos = torch.rand((total_samples_same_time, self.n_dofs), **self.tensor_args)
+            pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
+            in_collision = self.check_point_collision(pos, **observation)
+            idxs_not_in_collision = torch.argwhere(in_collision == False)
+            if idxs_not_in_collision.nelement() == 0:
+                # all points are in collision
+                continue
+            idx_random = torch.randperm(len(idxs_not_in_collision))[:n_samples]
+            free_pos = pos[idxs_not_in_collision[idx_random]].squeeze()
+            idx_end = min(idx_begin + free_pos.shape[0], samples.shape[0])
+            samples[idx_begin:idx_end] = free_pos[:idx_end - idx_begin]
+            idx_begin = idx_end
+            if idx_end >= n_samples:
+                reject = False
+                break
+
+        if reject:
+            sys.exit("Could not find a collision free configuration")
+
+        return samples.squeeze()
+
+    def remove_last_sample(self):
+        # https://discuss.pytorch.org/t/how-to-remove-an-element-from-a-1-d-tensor-by-index/23109/3
+        if len(self.pre_samples) > 0:
+            i = self.last_sample_idx
+            self.pre_samples = torch.cat([self.pre_samples[:i], self.pre_samples[i+1:]])
 
     def optimize(
             self,
@@ -182,7 +224,10 @@ class RRTStar(MPPlanner):
 
             # Sample new node
             do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
-            s = self.goal_state if do_goal else self.sample_fn(**observation)
+            if do_goal:
+                s = self.goal_state
+            else:
+                s = self.sample_fn(**observation)
 
             if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
                 if debug:
@@ -190,6 +235,7 @@ class RRTStar(MPPlanner):
 
             # Informed RRT*
             if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
+                self.remove_last_sample()
                 continue
 
             # nearest node to the sampled node
@@ -203,6 +249,10 @@ class RRTStar(MPPlanner):
             path = safe_path(extended, self.collision_fn)
             if len(path) == 0:
                 continue
+
+            if not do_goal and torch.allclose(path[-1], s):
+                self.remove_last_sample()
+
             new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
                 nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
 
@@ -224,9 +274,11 @@ class RRTStar(MPPlanner):
                 neighbors_idxs = torch.argwhere(distances < self.n_radius)
 
             if neighbors_idxs.nelement() != 0:
-                neighbors = list(itemgetter(*neighbors_idxs.squeeze().cpu().numpy())(self.nodes))
-                if len(neighbors) == 1:
-                    neighbors = [neighbors]
+                neighbors_idxs = np.atleast_1d(neighbors_idxs.squeeze().cpu().numpy())
+                try:
+                    neighbors = list(itemgetter(*neighbors_idxs)(self.nodes))
+                except TypeError:
+                    neighbors = [itemgetter(*neighbors_idxs)(self.nodes)]
             else:
                 neighbors = []
 
@@ -251,10 +303,9 @@ class RRTStar(MPPlanner):
 
         return purge_duplicates_from_traj(path, eps=1e-6)
 
-    @staticmethod
-    def print_info(iteration, start_time, success, goal_n):
-        print('Iteration: {} | Time: {:.3f} | Success: {} | Cost: {:.10f}'.format(
-            iteration, elapsed_time(start_time), success, goal_n.cost if success else torch.inf))
+    def print_info(self, iteration, start_time, success, goal_n):
+        print(f'Iteration: {iteration} | Nodes: {self.nodes_torch.shape[0]} | Time: {elapsed_time(start_time):.3f} '
+              f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.6f}')
 
     def check_point_collision(self, pos, **observation):
         if pos.ndim == 1:
@@ -286,29 +337,12 @@ class RRTStar(MPPlanner):
         """
         Returns: random positions in environment space not in collision
         """
-        if self.rrt_sample_fn is not None and np.random.rand() < self.rrt_sample_fn_fraction:
-            pos = self.rrt_sample_fn()
+        if len(self.pre_samples) > 0:
+            idx = torch.randperm(len(self.pre_samples))[0]
+            pos = self.pre_samples[idx]
+            self.last_sample_idx = idx
         else:
-            # sample a batch of random points and pick one that is not in collision
-            n_points = 100
-            max_tries = 1000
-            reject = True
-            for i in range(max_tries):
-                pos = torch.rand((n_points, self.n_dofs), **self.tensor_args)
-                pos = self.limits[:, 0] + pos * (self.limits[:, 1] - self.limits[:, 0])
-                in_collision = self.check_point_collision(pos, **observation)
-                idxs_not_in_collision = torch.argwhere(in_collision == False)
-                if idxs_not_in_collision.nelement() == 0:
-                    # all points are in collision
-                    continue
-                # pick a random point not in collision
-                idx_random = torch.randperm(len(idxs_not_in_collision))[0].item()
-                pos = pos[idxs_not_in_collision[idx_random]].squeeze()
-                reject = False
-                break
-
-            if reject:
-                sys.exit("Could not find a collision free configuration")
+            pos = self.create_uniform_samples(1, **observation)
 
         return pos
 
@@ -347,5 +381,6 @@ class RRTStar(MPPlanner):
         else:
             costs = self.cost.eval(state_trajectories, **observation)
         return costs
+
 
 

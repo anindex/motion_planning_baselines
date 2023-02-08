@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     n_dof = 2
     n_iters = 30000
-    max_best_cost_iters = 500
+    max_best_cost_iters = 2000
     cost_eps = 1e-2
     step_size = 0.01
     n_radius = 0.1
