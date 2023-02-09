@@ -21,7 +21,7 @@ def create_grid_circles(rows=5, cols=5, radius=0.1):
     y_flat = Y.flatten()
     circles[:, :2] = np.array([x_flat, y_flat]).T
     circles[:, 2] = radius
-    obst_list = [ObstacleCircle(x, y, r) for x, y, r in circles]
+    obst_list = [ObstacleCircle((x, y), r) for x, y, r in circles]
     return circles, obst_list
 
 
@@ -89,20 +89,15 @@ if __name__ == "__main__":
 
     # ---------------------------------------------------------------------------
     # Plotting
-
-    res = obst_map.map.shape[0]
-    x = np.linspace(-1, 1, res)
-    y = np.linspace(-1, 1, res)
-    fig = plt.figure()
-    planner.render()
-    ax = fig.gca()
-    cs = ax.contourf(x, y, obst_map.map, 2, cmap='Greys')
-    ax.plot(start_state[0], start_state[1], 'go', markersize=7)
-    ax.plot(goal_state[0], goal_state[1], 'ro', markersize=7)
-    ax.set_aspect('equal')
+    fig, ax = plt.subplots()
+    planner.render(ax)
+    obst_map.plot(ax)
     if traj is not None:
         traj = np.array(traj)
         ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
+    ax.plot(start_state[0], start_state[1], 'go', markersize=7)
+    ax.plot(goal_state[0], goal_state[1], 'ro', markersize=7)
+    ax.set_aspect('equal')
     plt.show()
 
 
