@@ -87,6 +87,7 @@ class RRTStar(MPPlanner):
             n_iters: int,
             start_state: torch.Tensor,
             limits: torch.Tensor,
+            fk_map=None,
             cost=None,
             n_iters_after_success=None,
             max_best_cost_iters: int = 1000,
@@ -104,6 +105,8 @@ class RRTStar(MPPlanner):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
         self.n_dofs = n_dofs
         self.n_iters = n_iters
+
+        self.fk_map = fk_map
 
         self.n_iters_after_success = n_iters_after_success
         self.max_best_cost_iters = max_best_cost_iters if max_best_cost_iters is not None else n_iters
@@ -314,9 +317,9 @@ class RRTStar(MPPlanner):
 
     def check_point_collision(self, qs, **observation):
         if qs.ndim == 1:
-            qs = qs.unsqueeze(0).unsqueeze(0)  # add batch and traj len dim for interface
+            qs = qs.unsqueeze(0).unsqueeze(0)  # add batch and trajectory_length dimension for interface
         elif qs.ndim == 2:
-            qs = qs.unsqueeze(1)  # add traj len dim for interface
+            qs = qs.unsqueeze(1)  # add trajectory_length dimension for interface
 
         collisions = torch.ones(qs.shape[0], **self.tensor_args)
 
@@ -334,15 +337,26 @@ class RRTStar(MPPlanner):
             return collisions
 
         # do forward kinematics
-        fk_map = observation.get('fk', None)
-        pos_x = None
-        if fk_map is not None:
-            pos_x = fk_map(qs[idxs_in_bounds])
+        if self.fk_map is not None:
+            if idxs_in_bounds.ndim == 0:
+                qs_try = qs[idxs_in_bounds][None, ...]
+            else:
+                qs_try = qs[idxs_in_bounds]
+            pos_x = self.fk_map(qs_try)
+            # collision in task space
+            collisions_task_space = torch.zeros_like(collisions[idxs_in_bounds])
+            collisions_pos_x = self.cost.get_collisions(pos_x, **observation).squeeze()
+            if collisions_pos_x.ndim == 2:
+                # configuration is not valid if any point in the task space is in collision
+                idx_collisions = torch.argwhere(torch.any(collisions_pos_x, dim=-1)).squeeze()
+            else:
+                idx_collisions = torch.argwhere(collisions_pos_x)
 
-        # collision in task space
-        collisions_task_space = self.cost.get_collisions(qs[idxs_in_bounds], x_trajs=pos_x, **observation).squeeze()
+            if idx_collisions.nelement() > 0:
+                collisions_task_space[idx_collisions] = 1
 
-        collisions = torch.logical_or(collisions[idxs_in_bounds], collisions_task_space)
+            # filter collisions in task space
+            collisions = torch.logical_or(collisions[idxs_in_bounds], collisions_task_space)
 
         return collisions
 
