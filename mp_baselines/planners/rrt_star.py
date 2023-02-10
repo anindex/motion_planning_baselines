@@ -143,13 +143,13 @@ class RRTStar(MPPlanner):
         else:
             self.pre_samples = uniform_samples
 
-    def create_uniform_samples(self, n_samples, total_samples_same_time=1000, **observation):
+    def create_uniform_samples(self, n_samples, max_samples=1000, **observation):
         max_tries = 1000
         reject = True
         samples = torch.zeros((n_samples, self.n_dofs), **self.tensor_args)
         idx_begin = 0
         for i in range(max_tries):
-            qs = torch.rand((total_samples_same_time, self.n_dofs), **self.tensor_args)
+            qs = torch.rand((max_samples, self.n_dofs), **self.tensor_args)
             qs = self.limits[:, 0] + qs * (self.limits[:, 1] - self.limits[:, 0])
             in_collision = self.check_point_collision(qs, **observation)
             idxs_not_in_collision = torch.argwhere(in_collision == False)
