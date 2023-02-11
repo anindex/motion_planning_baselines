@@ -110,17 +110,14 @@ if __name__ == "__main__":
     max_time = 15.
     limits = robot.limits
 
-    # start_state = torch.tensor([np.pi - 0.05, 0], **tensor_args)
-    # goal_state = torch.tensor([-np.pi + 0.05, 0], **tensor_args)
-
-    # start_state = torch.tensor([-np.pi/2, 0], **tensor_args)
-    # goal_state = torch.tensor([0, 0], **tensor_args)
+    start_state = torch.tensor([-np.pi/2, 0], **tensor_args)
+    goal_state = torch.tensor([0, 0], **tensor_args)
 
     # start_state = torch.tensor([-2.75, -0.28], **tensor_args)
     # goal_state = torch.tensor([2.75, 0.28], **tensor_args)
 
-    start_state = torch.tensor([-2.63, 2.23], **tensor_args)
-    goal_state = torch.tensor([0.17, -2.5], **tensor_args)
+    # start_state = torch.tensor([-2.63, 2.23], **tensor_args)
+    # goal_state = torch.tensor([0.17, -2.5], **tensor_args)
 
     ## Obstacle map
     cell_size = 0.01

@@ -337,26 +337,30 @@ class RRTStar(MPPlanner):
             return collisions
 
         # do forward kinematics
+        if idxs_in_bounds.ndim == 0:
+            qs_try = qs[idxs_in_bounds][None, ...]
+        else:
+            qs_try = qs[idxs_in_bounds]
+
+        # if there is no forward kinematics, then assume it's the identity
+        pos_x = qs_try
         if self.fk_map is not None:
-            if idxs_in_bounds.ndim == 0:
-                qs_try = qs[idxs_in_bounds][None, ...]
-            else:
-                qs_try = qs[idxs_in_bounds]
             pos_x = self.fk_map(qs_try)
-            # collision in task space
-            collisions_task_space = torch.zeros_like(collisions[idxs_in_bounds])
-            collisions_pos_x = self.cost.get_collisions(pos_x, **observation).squeeze()
-            if collisions_pos_x.ndim == 2:
-                # configuration is not valid if any point in the task space is in collision
-                idx_collisions = torch.argwhere(torch.any(collisions_pos_x, dim=-1)).squeeze()
-            else:
-                idx_collisions = torch.argwhere(collisions_pos_x)
 
-            if idx_collisions.nelement() > 0:
-                collisions_task_space[idx_collisions] = 1
+        # collision in task space
+        collisions_task_space = torch.zeros_like(collisions[idxs_in_bounds])
+        collisions_pos_x = self.cost.get_collisions(pos_x, **observation).squeeze()
+        if collisions_pos_x.ndim == 2:
+            # configuration is not valid if any point in the task space is in collision
+            idx_collisions = torch.argwhere(torch.any(collisions_pos_x, dim=-1)).squeeze()
+        else:
+            idx_collisions = torch.argwhere(collisions_pos_x)
 
-            # filter collisions in task space
-            collisions = torch.logical_or(collisions[idxs_in_bounds], collisions_task_space)
+        if idx_collisions.nelement() > 0:
+            collisions_task_space[idx_collisions] = 1
+
+        # filter collisions in task space
+        collisions = torch.logical_or(collisions[idxs_in_bounds], collisions_task_space)
 
         return collisions
 
