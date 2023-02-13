@@ -53,10 +53,10 @@ class MPPlanner(ABC):
 class OptimizationPlanner(MPPlanner):
 
     def __init__(self, name: str,
-                n_dofs: int,
+                n_dof: int,
                 traj_len: int,
                 num_particles_per_goal: int,
-                n_iters: int,
+                opt_iters: int,
                 dt: float,
                 start_state: torch.Tensor,
                 cost=None,
@@ -68,10 +68,11 @@ class OptimizationPlanner(MPPlanner):
                 pos_only: bool = True,
                 tensor_args: dict = None, **kwargs):
         super().__init__(name, tensor_args, **kwargs)
-        self.n_dofs = n_dofs
+        self.n_dof = n_dof
+        self.dim = 2 * self.n_dof
         self.traj_len = traj_len
         self.num_particles_per_goal = num_particles_per_goal
-        self.n_iters = n_iters
+        self.opt_iters = opt_iters
         self.dt = dt
         self.pos_only = pos_only
 
@@ -86,10 +87,10 @@ class OptimizationPlanner(MPPlanner):
         self.cost = cost
         self.initial_particle_means = initial_particle_means
         if self.pos_only:
-            self.d_state_opt = self.n_dofs
+            self.d_state_opt = self.n_dof
             self.start_state = self.start_state
         else:
-            self.d_state_opt = 2 * self.n_dofs
+            self.d_state_opt = 2 * self.n_dof
             self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
             self.multi_goal_states = torch.cat([self.multi_goal_states, torch.zeros_like(self.multi_goal_states)], dim=-1)
 
@@ -105,47 +106,61 @@ class OptimizationPlanner(MPPlanner):
             state_init,
             particle_means=None,
             goal_states=None,
+            tensor_args=None,
     ):
-
+        if tensor_args is None:
+            tensor_args = self.tensor_args
         return MultiMPPrior(
             self.traj_len - 1,
             self.dt,
-            2 * self.n_dofs,
-            self.n_dofs,
+            self.dim,
+            self.n_dof,
             start_K,
             gp_K,
             state_init,
             K_g_inv=goal_K,  # NOTE(sasha) Assume same goal Cov. for now
             means=particle_means,
             goal_states=goal_states,
-            tensor_args=self.tensor_args,
+            tensor_args=tensor_args,
         )
 
+    def const_vel_trajectories(
+        self,
+        start_state,
+        multi_goal_states,
+    ):
+        traj_dim = (multi_goal_states.shape[0], self.traj_len, self.dim)
+        state_traj = torch.zeros(traj_dim, **self.tensor_args)
+        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.traj_len * self.dt)
+        for i in range(self.traj_len):
+            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.traj_len - i - 1) / (self.traj_len - 1) \
+                                  + multi_goal_states[:, :self.n_dof] * i / (self.traj_len - 1)
+        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.traj_len, 1)
+        return state_traj
+
     def get_random_trajs(self):
+        # force torch.float64
+        tensor_args = dict(dtype=torch.float64, device=self.tensor_args['device'])
         # set zero velocity for GP prior
-        if self.pos_only:
-            start_state = torch.cat((self.start_state, torch.zeros_like(self.start_state)), dim=-1)
-            if self.multi_goal_states is not None:
-                multi_goal_states = torch.cat((self.multi_goal_states, torch.zeros_like(self.multi_goal_states)), dim=-1)
-            else:
-                multi_goal_states = None
+        start_state = torch.cat((self.start_state, torch.zeros_like(self.start_state)), dim=-1).to(**tensor_args)
+        if self.multi_goal_states is not None:
+            multi_goal_states = torch.cat((self.multi_goal_states, torch.zeros_like(self.multi_goal_states)), dim=-1).to(**tensor_args)
         else:
-            start_state = self.start_state
-            multi_goal_states = self.multi_goal_states
+            multi_goal_states = None
         #========= Initialization factors ===============
         self.start_prior_init = UnaryFactor(
-            self.n_dofs * 2,
+            self.n_dof * 2,
             self.sigma_start_init,
             start_state,
-            self.tensor_args,
+            tensor_args,
         )
 
         self.gp_prior_init = GPFactor(
-            self.n_dofs,
+            self.n_dof,
             self.sigma_gp_init,
             self.dt,
             self.traj_len - 1,
-            self.tensor_args,
+            tensor_args,
         )
 
         self.multi_goal_prior_init = []
@@ -153,10 +168,10 @@ class OptimizationPlanner(MPPlanner):
             for i in range(self.num_goals):
                 self.multi_goal_prior_init.append(
                     UnaryFactor(
-                        self.n_dofs * 2,
+                        self.n_dof * 2,
                         self.sigma_goal_init,
                         multi_goal_states[i],
-                        self.tensor_args,
+                        tensor_args,
                     )
                 )
         self._traj_dist = self.get_GP_prior(
@@ -165,13 +180,12 @@ class OptimizationPlanner(MPPlanner):
                 self.multi_goal_prior_init[0].K if multi_goal_states is not None else None,
                 start_state,
                 goal_states=multi_goal_states,
+                tensor_args=tensor_args,
             )
-        particles = self._traj_dist.sample(self.num_particles_per_goal).to(**self.tensor_args)
-        if self.pos_only:
-            particles = particles[..., :self.n_dofs]
+        particles = self._traj_dist.sample(self.num_particles_per_goal).to(**tensor_args)
         self.traj_dim = particles.shape
         del self._traj_dist  # free memory
-        return particles.flatten(0, 1)
+        return particles.flatten(0, 1).to(**self.tensor_args)
 
     def _get_traj(self):
         """

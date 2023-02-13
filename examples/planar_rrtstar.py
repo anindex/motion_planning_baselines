@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
-from stoch_gpmp.costs.cost_functions import CostCollision, CostComposite
 from mp_baselines.planners.rrt_star import RRTStar
 
 
 if __name__ == "__main__":
     # device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
     device = 'cpu'
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     n_dof = 2
     n_iters = 5000
@@ -58,7 +57,7 @@ if __name__ == "__main__":
         max_best_cost_iters=max_best_cost_iters,
         start_state=start_state,
         limits=limits,
-        cost=obst_map,
+        collision_fn=obst_map.get_collisions,
         step_size=step_size,
         n_radius=n_radius,
         n_knn=n_knn,
@@ -72,7 +71,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj = planner.optimize(debug=True, informed=True)
+    traj = planner.optimize(first_goal_return=True, debug=True, informed=True)
     print(f"{time.time() - start} seconds")
 
     # ---------------------------------------------------------------------------

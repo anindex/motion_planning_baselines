@@ -17,6 +17,7 @@ class MPPI(MPPlanner):
             temp=1.,
             cov_prior_type='indep_ctrl',
             tensor_args=None,
+            **kwargs
     ):
         super(MPPI, self).__init__(name='MPPI', tensor_args=tensor_args)
         self.system = system
