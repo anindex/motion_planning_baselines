@@ -15,11 +15,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     n_dof = 2
-    traj_len = 64
+    traj_len = 128
     dt = 0.02
     num_particles_per_goal = 5
-    num_samples = 32
-    seed = 11
+    num_samples = 64
+    seed = int(time.time())
     start_state = torch.tensor([-9, -9], **tensor_args)
     multi_goal_states = torch.tensor([9, 8], **tensor_args).unsqueeze(0)
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         cell_size=cell_size,
         map_type='direct',
         random_gen=True,
-        num_obst=10,
+        num_obst=15,
         rand_xy_limits=[[-7.5, 7.5], [-7.5, 7.5]],
         rand_rect_shape=[2, 2],
         tensor_args=tensor_args,
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     sigma_coll = 1e-4
     sigmas_prior = dict(
         sigma_start=0.001,
-        sigma_gp=1.,
+        sigma_gp=0.2,
     )
 
     # Construct cost function
@@ -63,21 +63,21 @@ if __name__ == "__main__":
 
     ## Planner - 2D point particle dynamics
     stomp_params = dict(
-        n_dofs=n_dof,
+        n_dof=n_dof,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
         num_samples=num_samples,
-        n_iters=1, # Keep this 1 for visualization
+        opt_iters=1, # Keep this 1 for visualization
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
         temperature=1.,
-        step_size=0.5,
-        sigma_spectral=0.05,
+        step_size=0.1,
+        sigma_spectral=0.1,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
         sigma_goal_init=0.001,
-        sigma_gp_init=20.,
+        sigma_gp_init=5.,
         pos_only=False,
         tensor_args=tensor_args,
     )
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     # opt_iters = 50
-    opt_iters = 200
+    opt_iters = 400
     # opt_iters = 1000
 
     traj_history = []
