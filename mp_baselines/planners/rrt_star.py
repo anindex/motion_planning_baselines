@@ -127,6 +127,7 @@ class RRTStar(MPPlanner):
         self.n_pre_samples = n_pre_samples
         self.pre_samples = pre_samples
         self.last_sample_idx = None
+        self.n_samples_refill = self.n_pre_samples
 
         self.cost = cost
         self.reset()
@@ -371,17 +372,24 @@ class RRTStar(MPPlanner):
         points = q1 + (q2 - q1) * alpha.unsqueeze(1)
         return (self.check_point_collision(points, **observation) > 0.).any()
     
-    def random_collision_free(self, **observation):
+    def random_collision_free(self, refill_samples_buffer=False, **observation):
         """
         Returns: random positions in environment space not in collision
         """
         if len(self.pre_samples) > 0:
-            idx = torch.randperm(len(self.pre_samples))[0]
-            qs = self.pre_samples[idx]
-            self.last_sample_idx = idx
+            qs = self.get_pre_sample()
+        elif refill_samples_buffer:
+            self.pre_samples = self.create_uniform_samples(self.n_samples_refill, **observation)
+            qs = self.get_pre_sample()
         else:
             qs = self.create_uniform_samples(1, **observation)
 
+        return qs
+
+    def get_pre_sample(self):
+        idx = torch.randperm(len(self.pre_samples))[0]
+        qs = self.pre_samples[idx]
+        self.last_sample_idx = idx
         return qs
 
     def collision_fn(self, qs, pos_x=None, **observation):
