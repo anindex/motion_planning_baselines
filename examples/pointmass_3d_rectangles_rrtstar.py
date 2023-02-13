@@ -123,7 +123,7 @@ if __name__ == "__main__":
     ax.scatter3D(start_state[0], start_state[1], start_state[2], 'go', zorder=10, s=100)
     ax.scatter3D(goal_state[0], goal_state[1], goal_state[2], 'ro', zorder=10, s=100)
 
-    # ax.view_init(azim=0, elev=90)
+    ax.view_init(azim=0, elev=90)
     ax.set_aspect('equal')
     plt.show()
 

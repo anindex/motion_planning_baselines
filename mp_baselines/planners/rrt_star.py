@@ -8,7 +8,7 @@ import torch
 import time
 import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
-from mp_baselines.planners.utils import elapsed_time, argmin, safe_path, purge_duplicates_from_traj
+from mp_baselines.planners.utils import elapsed_time, argmin, safe_path, purge_duplicates_from_traj, extend_path
 
 
 class OptimalNode:
@@ -372,10 +372,11 @@ class RRTStar(MPPlanner):
         points = q1 + (q2 - q1) * alpha.unsqueeze(1)
         return (self.check_point_collision(points, **observation) > 0.).any()
     
-    def random_collision_free(self, refill_samples_buffer=False, **observation):
+    def random_collision_free(self, **observation):
         """
         Returns: random positions in environment space not in collision
         """
+        refill_samples_buffer = observation.get('refill_samples_buffer', False)
         if len(self.pre_samples) > 0:
             qs = self.get_pre_sample()
         elif refill_samples_buffer:
@@ -407,21 +408,13 @@ class RRTStar(MPPlanner):
         return torch.linalg.norm(q1 - q2, dim=-1)
 
     def extend_fn(self, q1, q2, max_step=0.03, max_dist=0.1):
-        # max_dist must be <= radius of RRT star!
-        dist = self.distance_fn(q1, q2)
-        if dist > max_dist:
-            q2 = q1 + (q2 - q1) * (max_dist / dist)
-
-        alpha = torch.linspace(0, 1, int(dist / max_step) + 2).to(**self.tensor_args)  # skip first and last
-        q1 = q1.unsqueeze(0)
-        q2 = q2.unsqueeze(0)
-        extension = q1 + (q2 - q1) * alpha.unsqueeze(1)
-        return extension
+        return extend_path(self.distance_fn, q1, q2, max_step, max_dist, tensor_args=self.tensor_args)
 
     def render(self, ax):
         self.nodes[0].render(ax)
 
     def _get_costs(self, state_trajectories, **observation):
+        raise NotImplementedError
         if self.cost is None:
             costs = torch.zeros(self.num_samples, )
         else:
