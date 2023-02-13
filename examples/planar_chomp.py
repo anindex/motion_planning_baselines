@@ -12,12 +12,12 @@ from mp_baselines.planners.chomp import CHOMP
 if __name__ == "__main__":
     device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
     # device = 'cpu'
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     n_dof = 2
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 5
+    num_particles_per_goal = 100
     seed = 11
     start_state = torch.tensor([-9, -9], **tensor_args)
     multi_goal_states = torch.tensor([9, 8], **tensor_args).unsqueeze(0)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     field = get_sphere_field_from_list(obst_list, tensor_args=tensor_args)
 
     #-------------------------------- Cost func. ---------------------------------
-    sigma_coll = 2e-4
+    sigma_coll = 1e-4
 
     # Construct cost function
     cost_obst_2D = CostCollision(n_dof, traj_len, field=field, sigma_coll=sigma_coll)
@@ -61,8 +61,8 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.05,
-        grad_clip=0.1,
+        step_size=0.1,
+        grad_clip=.1,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
         sigma_goal_init=0.001,
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------
     # Optimize
     # opt_iters = 50
-    opt_iters = 600
+    opt_iters = 800
     # opt_iters = 1000
 
     traj_history = []
@@ -97,16 +97,17 @@ if __name__ == "__main__":
     fig = plt.figure()
     view_field = True
     for iter, trajs in enumerate(traj_history):
-        plt.clf()
-        ax = fig.gca()
-        if view_field:
-            Z = field.compute_cost(grid).cpu().numpy()
-            cs = ax.contourf(X, Y, Z, 20, cmap='Greys')
-        else:
-            cs = ax.contourf(x, y, obst_map.map, 20, cmap='Greys')
-        ax.set_aspect('equal')
-        trajs = trajs.cpu().numpy()
-        for i in range(trajs.shape[0]):
-            ax.plot(trajs[i, :, 0], trajs[i, :, 1], 'ro', markersize=3)
-        plt.draw()
-        plt.pause(0.01)
+        if iter % 10 != 0:
+            plt.clf()
+            ax = fig.gca()
+            if view_field:
+                Z = field.compute_cost(grid).cpu().numpy()
+                cs = ax.contourf(X, Y, Z, 20, cmap='Greys')
+            else:
+                cs = ax.contourf(x, y, obst_map.map, 20, cmap='Greys')
+            ax.set_aspect('equal')
+            trajs = trajs.cpu().numpy()
+            for i in range(trajs.shape[0]):
+                ax.plot(trajs[i, :, 0], trajs[i, :, 1], 'ro', markersize=3)
+            plt.draw()
+            plt.pause(0.01)
