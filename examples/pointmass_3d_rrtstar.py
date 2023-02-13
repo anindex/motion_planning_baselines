@@ -31,7 +31,7 @@ if __name__ == "__main__":
     ## Obstacle map
     # obst_list = [(0, 0, 4, 6)]
     obst_list = []
-    cell_size = 0.2
+    cell_size = 0.5
     map_dim = [20, 20, 20]
 
     obst_params = dict(
