@@ -7,14 +7,6 @@ from scipy import interpolate
 def elapsed_time(start_time):
     return time.time() - start_time
 
-
-def argmin(function, sequence):
-    # TODO: use min
-    scores = [function(n) for n in sequence]
-    min_idx = min(enumerate(scores), key=lambda x: x[1])[0]
-    return sequence[min_idx]
-
-
 def extend_path(distance_fn, q1, q2, max_step=0.03, max_dist=0.1, tensor_args=None):
     # max_dist must be <= radius of RRT star!
     dist = distance_fn(q1, q2)
@@ -42,13 +34,6 @@ def safe_path(sequence, collision):
             return []
         # return the point immediate before the one in collision
         return sequence[first_idx_in_collision-1]
-
-
-def to_numpy(x, dtype=np.float32):
-    if torch.is_tensor(x):
-        x = x.detach().cpu().numpy().astype(dtype)
-        return x
-    return np.array(x).astype(dtype)
 
 
 def purge_duplicates_from_traj(path, eps=1e-6):
@@ -130,5 +115,12 @@ def to_torch(x, device='cpu', dtype=torch.float, requires_grad=False):
     if torch.is_tensor(x):
         return x.clone().to(device=device, dtype=dtype).requires_grad_(requires_grad)
     return torch.tensor(x, dtype=dtype, device=device, requires_grad=requires_grad)
+
+
+def to_numpy(x, dtype=np.float32):
+    if torch.is_tensor(x):
+        x = x.detach().cpu().numpy().astype(dtype)
+        return x
+    return np.array(x).astype(dtype)
 
 

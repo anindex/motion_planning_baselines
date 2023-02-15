@@ -8,7 +8,7 @@ import torch
 import time
 import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
-from mp_baselines.planners.utils import elapsed_time, argmin, safe_path, purge_duplicates_from_traj, extend_path
+from mp_baselines.planners.utils import elapsed_time, safe_path, purge_duplicates_from_traj, extend_path
 
 
 class OptimalNode:
@@ -83,12 +83,9 @@ class RRTStar(MPPlanner):
 
     def __init__(
             self,
-            n_dofs: int,
+            env,
             n_iters: int,
             start_state: torch.Tensor,
-            limits: torch.Tensor,
-            fk_map=None,
-            cost=None,
             n_iters_after_success=None,
             max_best_cost_iters: int = 1000,
             cost_eps: float = 1e-2,
@@ -103,10 +100,8 @@ class RRTStar(MPPlanner):
             pre_samples=None
     ):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
-        self.n_dofs = n_dofs
+        self.env = env
         self.n_iters = n_iters
-
-        self.fk_map = fk_map
 
         self.n_iters_after_success = n_iters_after_success
         self.max_best_cost_iters = max_best_cost_iters if max_best_cost_iters is not None else n_iters
@@ -122,14 +117,14 @@ class RRTStar(MPPlanner):
 
         self.start_state = start_state
         self.goal_state = goal_state
-        self.limits = limits  # [min, max] for each dimension
 
         self.n_pre_samples = n_pre_samples
         self.pre_samples = pre_samples
         self.last_sample_idx = None
         self.n_samples_refill = self.n_pre_samples
 
-        self.cost = cost
+        self.nodes = None
+        self.nodes_torch = None
         self.reset()
 
     def reset(self):
@@ -145,33 +140,9 @@ class RRTStar(MPPlanner):
             self.pre_samples = uniform_samples
 
     def create_uniform_samples(self, n_samples, max_samples=1000, **observation):
-        max_tries = 1000
-        reject = True
-        samples = torch.zeros((n_samples, self.n_dofs), **self.tensor_args)
-        idx_begin = 0
-        for i in range(max_tries):
-            qs = torch.rand((max_samples, self.n_dofs), **self.tensor_args)
-            qs = self.limits[:, 0] + qs * (self.limits[:, 1] - self.limits[:, 0])
-            in_collision = self.check_point_collision(qs, **observation)
-            idxs_not_in_collision = torch.argwhere(in_collision == False)
-            if idxs_not_in_collision.nelement() == 0:
-                # all points are in collision
-                continue
-            idx_random = torch.randperm(len(idxs_not_in_collision))[:n_samples]
-            free_qs = qs[idxs_not_in_collision[idx_random]].squeeze()
-            idx_end = min(idx_begin + free_qs.shape[0], samples.shape[0])
-            samples[idx_begin:idx_end] = free_qs[:idx_end - idx_begin]
-            idx_begin = idx_end
-            if idx_end >= n_samples:
-                reject = False
-                break
+        return self.env.random_coll_free_q(n_samples, max_samples)
 
-        if reject:
-            sys.exit("Could not find a collision free configuration")
-
-        return samples.squeeze()
-
-    def remove_last_sample(self):
+    def remove_last_pre_sample(self):
         # https://discuss.pytorch.org/t/how-to-remove-an-element-from-a-1-d-tensor-by-index/23109/3
         if len(self.pre_samples) > 0:
             i = self.last_sample_idx
@@ -197,7 +168,7 @@ class RRTStar(MPPlanner):
         eps = observation.get('eps', 1e-6)
         print_freq = observation.get('print_freq', 150)
         debug = observation.get('debug', False)
-        if self.collision_fn(self.start_state) or self.collision_fn(self.goal_state):
+        if self.collision_fn(self.start_state).squeeze() or self.collision_fn(self.goal_state).squeeze():
             return None
         self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
         self.nodes_torch = initial_nodes if initial_nodes is not None else OptimalNode(self.start_state).config
@@ -244,11 +215,10 @@ class RRTStar(MPPlanner):
 
             # Informed RRT*
             if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
-                self.remove_last_sample()
+                self.remove_last_pre_sample()
                 continue
 
             # nearest node to the sampled node
-            # nearest = argmin(lambda n: self.distance_fn(n.config, s), self.nodes)
             distances = self.distance_fn(self.nodes_torch, s)
             min_idx = torch.argmin(distances)
             nearest = self.nodes[min_idx]
@@ -260,7 +230,7 @@ class RRTStar(MPPlanner):
                 continue
 
             if not do_goal and torch.allclose(path[-1], s):
-                self.remove_last_sample()
+                self.remove_last_pre_sample()
 
             new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
                 nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
@@ -315,62 +285,6 @@ class RRTStar(MPPlanner):
     def print_info(self, iteration, start_time, success, goal_n):
         print(f'Iteration: {iteration} | Nodes: {self.nodes_torch.shape[0]} | Time: {elapsed_time(start_time):.3f} '
               f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.6f}')
-
-    def check_point_collision(self, qs, **observation):
-        if qs.ndim == 1:
-            qs = qs.unsqueeze(0).unsqueeze(0)  # add batch and trajectory_length dimension for interface
-        elif qs.ndim == 2:
-            qs = qs.unsqueeze(1)  # add trajectory_length dimension for interface
-
-        collisions = torch.ones(qs.shape[0], **self.tensor_args)
-
-        # check in bounds
-        idxs_in_bounds = torch.argwhere(torch.all(
-            torch.logical_and(torch.greater_equal(qs[:, 0, :], self.limits[:, 0]),
-                              torch.less_equal(qs[:, 0, :], self.limits[:, 1])
-                              ), dim=-1)
-        )
-        idxs_in_bounds = idxs_in_bounds.squeeze()
-        collisions[idxs_in_bounds] = 0
-
-        # check if all points are out of bounds (in collision)
-        if torch.count_nonzero(collisions) == qs.shape[0]:
-            return collisions
-
-        # do forward kinematics
-        if idxs_in_bounds.ndim == 0:
-            qs_try = qs[idxs_in_bounds][None, ...]
-        else:
-            qs_try = qs[idxs_in_bounds]
-
-        # if there is no forward kinematics, then assume it's the identity
-        pos_x = qs_try
-        if self.fk_map is not None:
-            pos_x = self.fk_map(qs_try)
-
-        # collision in task space
-        collisions_task_space = torch.zeros_like(collisions[idxs_in_bounds])
-        collisions_pos_x = self.cost.get_collisions(pos_x, **observation).squeeze()
-        if collisions_pos_x.ndim == 2:
-            # configuration is not valid if any point in the task space is in collision
-            idx_collisions = torch.argwhere(torch.any(collisions_pos_x, dim=-1)).squeeze()
-        else:
-            idx_collisions = torch.argwhere(collisions_pos_x)
-
-        if idx_collisions.nelement() > 0:
-            collisions_task_space[idx_collisions] = 1
-
-        # filter collisions in task space
-        collisions = torch.logical_or(collisions[idxs_in_bounds], collisions_task_space)
-
-        return collisions
-
-    def check_line_collision(self, q1, q2, num_interp_points=15, **observation):
-        alpha = torch.linspace(0, 1, num_interp_points + 2)[1:-1].to(**self.tensor_args)  # skip first and last
-        q1 = q1.unsqueeze(0)
-        q2 = q2.unsqueeze(0)
-        points = q1 + (q2 - q1) * alpha.unsqueeze(1)
-        return (self.check_point_collision(points, **observation) > 0.).any()
     
     def random_collision_free(self, **observation):
         """
@@ -393,33 +307,20 @@ class RRTStar(MPPlanner):
         self.last_sample_idx = idx
         return qs
 
-    def collision_fn(self, qs, pos_x=None, **observation):
-        return self.check_point_collision(qs, pos_x=pos_x, **observation)
+    def collision_fn(self, qs, **observation):
+        return self.env.check_collision(qs).squeeze()
 
-    def sample_fn(self, check_collision=True, **observation):
-        if check_collision:
+    def sample_fn(self, without_collision=True, **observation):
+        if without_collision:
             return self.random_collision_free(**observation)
         else:
-            qs = torch.rand(self.n_dofs, **self.tensor_args)
-            qs = self.limits[:, 0] + qs * (self.limits[:, 1] - self.limits[:, 0])
-            return qs
+            return self.env.random_q()
 
     def distance_fn(self, q1, q2):
-        return torch.linalg.norm(q1 - q2, dim=-1)
+        return self.env.distance_q(q1, q2)
 
     def extend_fn(self, q1, q2, max_step=0.03, max_dist=0.1):
         return extend_path(self.distance_fn, q1, q2, max_step, max_dist, tensor_args=self.tensor_args)
 
     def render(self, ax):
         self.nodes[0].render(ax)
-
-    def _get_costs(self, state_trajectories, **observation):
-        raise NotImplementedError
-        if self.cost is None:
-            costs = torch.zeros(self.num_samples, )
-        else:
-            costs = self.cost.eval(state_trajectories, **observation)
-        return costs
-
-
-

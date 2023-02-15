@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from experiment_launcher.utils import fix_random_seed
+from mp_baselines.planners.utils import elapsed_time
+from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
 from mp_baselines.planners.rrt_star import RRTStar
-from torch_planning_objectives.fields.occupancy_map.obst_map import ObstacleCircle, ObstacleRectangle
+from torch_planning_objectives.fields.occupancy_map.obst_map import ObstacleSphere, ObstacleBox
 
 
 def fixed_rectangles():
@@ -43,7 +45,7 @@ def fixed_rectangles():
         h = abs(tr_y - bl_y)
         d = 1.95
         rect = ((x, y, z), (w, h, d))
-        obst_list.append(ObstacleRectangle(*rect))
+        obst_list.append(ObstacleBox(*rect))
         rectangles.append(rect)
 
     return obst_list
@@ -51,30 +53,23 @@ def fixed_rectangles():
 
 
 if __name__ == "__main__":
-    seed = 18
+    seed = 5
     fix_random_seed(seed)
 
-    # device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
     device = 'cpu'
     tensor_args = {'device': device, 'dtype': torch.float64}
 
-    n_dof = 3
-    n_iters = 50000
-    max_best_cost_iters = 5000
-    step_size = 0.05
-    n_radius = 0.1
-    n_knn = 5
-    goal_prob = 0.1
-    max_time = 60.
-
-    start_state = torch.tensor([-0.9, -0.9, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.9, 0.9, 0.9], **tensor_args)
+    # -------------------------------- Environment ---------------------------------
     limits = torch.tensor([[-1, 1], [-1, 1], [-1, 1]], **tensor_args)
 
     ## Obstacle map
     cell_size = 0.05
     map_dim = [2, 2, 2]
 
+    rows = 5
+    cols = 5
+    heights = 5
+    radius = 0.075
     obst_list = fixed_rectangles()
 
     obst_params = dict(
@@ -86,14 +81,33 @@ if __name__ == "__main__":
     )
     obst_map, obst_list = generate_obstacle_map(**obst_params)
 
+    env = ObstacleMapEnv(
+        name='circles',
+        q_n_dofs=3,
+        q_min=limits[:, 0],
+        q_max=limits[:, 1],
+        obstacle_map=obst_map,
+        tensor_args=tensor_args
+    )
+
     # -------------------------------- Planner ---------------------------------
+    n_iters = 30000
+    max_best_cost_iters = 2000
+    cost_eps = 1e-2
+    step_size = 0.01
+    n_radius = 0.1
+    n_knn = 5
+    goal_prob = 0.1
+    max_time = 60.
+    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
+
     rrt_params = dict(
-        n_dofs=n_dof,
+        env=env,
         n_iters=n_iters,
         max_best_cost_iters=max_best_cost_iters,
+        cost_eps=cost_eps,
         start_state=start_state,
-        limits=limits,
-        cost=obst_map,
         step_size=step_size,
         n_radius=n_radius,
         n_knn=n_knn,
@@ -108,13 +122,13 @@ if __name__ == "__main__":
     # Optimize
     start = time.time()
     traj = planner.optimize(debug=True, informed=True)
-    print(f"{time.time() - start} seconds")
+    print(f"{elapsed_time(start)} seconds")
 
     # ---------------------------------------------------------------------------
     # Plotting
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    # planner.render(ax)
+    planner.render(ax)
     obst_map.plot(ax)
     if traj is not None:
         traj = np.array(traj)
@@ -126,5 +140,3 @@ if __name__ == "__main__":
     ax.view_init(azim=0, elev=90)
     ax.set_aspect('equal')
     plt.show()
-
-

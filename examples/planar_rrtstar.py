@@ -4,30 +4,23 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
+from experiment_launcher.utils import fix_random_seed
+from mp_baselines.planners.utils import elapsed_time
+from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
 from mp_baselines.planners.rrt_star import RRTStar
 
 
 if __name__ == "__main__":
-    # device = torch.device('cuda:' + str(0) if torch.cuda.is_available() else 'cpu')
-    device = 'cpu'
-    tensor_args = {'device': device, 'dtype': torch.float32}
-
-    n_dof = 2
-    n_iters = 5000
-    max_best_cost_iters = 1000
-    step_size = 0.1
-    n_radius = 2.
-    n_knn = 10
-    goal_prob = 0.20
-    max_time = 15.
     seed = 17
-    start_state = torch.tensor([-9, -9], **tensor_args)
-    goal_state = torch.tensor([9, 8], **tensor_args)
+    fix_random_seed(17)
+
+    tensor_args = {'device': 'cpu', 'dtype': torch.float32}
+
+    # -------------------------------- Environment ---------------------------------
     limits = torch.tensor([[-10, 10], [-10, 10]], **tensor_args)
 
     ## Obstacle map
-    # obst_list = [(0, 0, 4, 6)]
     obst_list = []
     cell_size = 0.2
     map_dim = [20, 20]
@@ -44,20 +37,36 @@ if __name__ == "__main__":
         rand_circle_radius=2,
         tensor_args=tensor_args,
     )
-    # For obst. generation
-    random.seed(seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+
     obst_map, obst_list = generate_obstacle_map(**obst_params)
 
+    env = ObstacleMapEnv(
+        name='circles',
+        q_n_dofs=2,
+        q_min=limits[:, 0],
+        q_max=limits[:, 1],
+        obstacle_map=obst_map,
+        tensor_args=tensor_args
+    )
+
     # -------------------------------- Planner ---------------------------------
+    n_iters = 5000
+    max_best_cost_iters = 1000
+    cost_eps = 1e-2
+    step_size = 0.1
+    n_radius = 2.
+    n_knn = 10
+    goal_prob = 0.20
+    max_time = 15.
+    start_state = torch.tensor([-9, -9], **tensor_args)
+    goal_state = torch.tensor([9, 8], **tensor_args)
+
     rrt_params = dict(
-        n_dofs=n_dof,
+        env=env,
         n_iters=n_iters,
         max_best_cost_iters=max_best_cost_iters,
+        cost_eps=cost_eps,
         start_state=start_state,
-        limits=limits,
-        collision_fn=obst_map.get_collisions,
         step_size=step_size,
         n_radius=n_radius,
         n_knn=n_knn,
@@ -72,7 +81,7 @@ if __name__ == "__main__":
     # Optimize
     start = time.time()
     traj = planner.optimize(first_goal_return=True, debug=True, informed=True)
-    print(f"{time.time() - start} seconds")
+    print(f"{elapsed_time(start)} seconds")
 
     # ---------------------------------------------------------------------------
     # Plotting
