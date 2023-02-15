@@ -7,14 +7,14 @@ import numpy as np
 from experiment_launcher.utils import fix_random_seed
 from mp_baselines.planners.utils import elapsed_time
 from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
-from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
+from torch_kinematics_tree.geometrics.utils import to_numpy
+from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, build_obstacle_map
 from mp_baselines.planners.rrt_star import RRTStar
-from torch_planning_objectives.fields.occupancy_map.obst_map import ObstacleSphere
+from torch_planning_objectives.fields.primitive_distance_fields import Sphere
 
 
 def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1):
     # Generates a grid (rows, cols, heights) of circles
-    circles = np.empty((rows*cols*heights, 4), dtype=np.float32)
     distance_from_wall = 0.1
     centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
     centers_y = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, rows)
@@ -23,10 +23,10 @@ def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1):
     x_flat = X.flatten()
     y_flat = Y.flatten()
     z_flat = Z.flatten()
-    circles[:, :3] = np.array([x_flat, y_flat, z_flat]).T
-    circles[:, 3] = radius
-    obst_list = [ObstacleSphere((x, y, z), r) for x, y, z, r in circles]
-    return circles, obst_list
+    centers = np.array([x_flat, y_flat, z_flat]).T
+    radii = np.ones(x_flat.shape[0]) * radius
+    primitive_obst_list = [Sphere(centers, radii)]
+    return primitive_obst_list
 
 
 if __name__ == "__main__":
@@ -40,14 +40,14 @@ if __name__ == "__main__":
     limits = torch.tensor([[-1, 1], [-1, 1], [-1, 1]], **tensor_args)
 
     ## Obstacle map
-    cell_size = 0.02
+    cell_size = 0.05
     map_dim = [2, 2, 2]
 
     rows = 5
     cols = 5
     heights = 5
     radius = 0.075
-    circles, obst_list = create_grid_circles(rows, cols, heights, radius)
+    obst_list = create_grid_circles(rows, cols, heights, radius)
 
     obst_params = dict(
         map_dim=map_dim,
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         map_type='direct',
         tensor_args=tensor_args,
     )
-    obst_map, obst_list = generate_obstacle_map(**obst_params)
+    obst_map = build_obstacle_map(**obst_params)
 
     env = ObstacleMapEnv(
         name='circles',
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj = planner.optimize(debug=True, informed=True)
+    traj = planner.optimize(debug=True, informed=True, refill_samples_buffer=True)
     print(f"{elapsed_time(start)} seconds")
 
     # ---------------------------------------------------------------------------
@@ -108,10 +108,12 @@ if __name__ == "__main__":
     planner.render(ax)
     obst_map.plot(ax)
     if traj is not None:
-        traj = np.array(traj)
+        traj = to_numpy(traj)
         ax.plot3D(traj[:, 0], traj[:, 1], traj[:, 2], 'b-')
         ax.scatter3D(traj[:, 0], traj[:, 1], traj[:, 2], color='b')
-    ax.scatter3D(start_state[0], start_state[1], start_state[2], 'go', zorder=10, s=100)
-    ax.scatter3D(goal_state[0], goal_state[1], goal_state[2], 'ro', zorder=10, s=100)
+    start_state_np = to_numpy(start_state)
+    goal_state_np = to_numpy(goal_state)
+    ax.scatter3D(start_state_np[0], start_state_np[1], start_state_np[2], 'go', zorder=10, s=100)
+    ax.scatter3D(goal_state_np[0], goal_state_np[1], goal_state_np[2], 'ro', zorder=10, s=100)
     ax.set_aspect('equal')
     plt.show()

@@ -1,50 +1,63 @@
-import torch
 import time
-import random
+
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from experiment_launcher.utils import fix_random_seed
+from mp_baselines.planners.rrt_star import RRTStar
 from mp_baselines.planners.utils import elapsed_time
 from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
-from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map
-from mp_baselines.planners.rrt_star import RRTStar
+from torch_kinematics_tree.geometrics.utils import to_numpy
+from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, build_obstacle_map
+from torch_planning_objectives.fields.primitive_distance_fields import Sphere
+
+
+def create_grid_circles(rows=5, cols=5, radius=0.1):
+    # Generates a grid (rows, cols) of circles
+    distance_from_wall = 0.1
+    centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
+    centers_y = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, rows)
+    X, Y = np.meshgrid(centers_x, centers_y)
+    x_flat = X.flatten()
+    y_flat = Y.flatten()
+    centers = np.array([x_flat, y_flat]).T
+    radii = np.ones(x_flat.shape[0]) * radius
+    primitive_obst_list = [Sphere(centers, radii)]
+    return primitive_obst_list
 
 
 if __name__ == "__main__":
-    seed = 18
+    seed = 5
     fix_random_seed(seed)
 
     device = 'cpu'
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     # -------------------------------- Environment ---------------------------------
-    limits = torch.tensor([[-10, 10], [-10, 10], [-10, 10]], **tensor_args)
+    limits = torch.tensor([[-1, 1], [-1, 1]], **tensor_args)
 
     ## Obstacle map
-    obst_list = []
-    cell_size = 0.5
-    map_dim = [20, 20, 20]
+    cell_size = 0.01
+    map_dim = [2, 2]
+
+    rows = 10
+    cols = 10
+    radius = 0.075
+    obst_list = create_grid_circles(rows, cols, radius)
 
     obst_params = dict(
         map_dim=map_dim,
         obst_list=obst_list,
         cell_size=cell_size,
         map_type='direct',
-        random_gen=True,
-        num_obst=15,
-        rand_limits=[(-8.5, 8.5), (-8.5, 8.5), (-8.5, 8.5)],
-        rand_rect_shape=[4, 4, 4],
-        rand_circle_radius=3,
         tensor_args=tensor_args,
     )
-
-    # Obstacle generation
-    obst_map, obst_list = generate_obstacle_map(**obst_params)
+    obst_map = build_obstacle_map(**obst_params)
 
     env = ObstacleMapEnv(
         name='circles',
-        q_n_dofs=3,
+        q_n_dofs=2,
         q_min=limits[:, 0],
         q_max=limits[:, 1],
         obstacle_map=obst_map,
@@ -55,13 +68,14 @@ if __name__ == "__main__":
     n_iters = 30000
     max_best_cost_iters = 2000
     cost_eps = 1e-2
-    step_size = 0.1
-    n_radius = 2.
-    n_knn = 5
+    step_size = 0.01
+    n_radius = 0.1
+    n_knn = 10
     goal_prob = 0.1
     max_time = 60.
-    start_state = torch.tensor([-9, -9, -9], **tensor_args)
-    goal_state = torch.tensor([9, 9, 9], **tensor_args)
+
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
 
     rrt_params = dict(
         env=env,
@@ -82,21 +96,20 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj = planner.optimize(debug=True, informed=True)
+    traj = planner.optimize(debug=True, informed=True, refill_samples_buffer=True)
     print(f"{elapsed_time(start)} seconds")
 
     # ---------------------------------------------------------------------------
     # Plotting
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    fig, ax = plt.subplots()
     planner.render(ax)
     obst_map.plot(ax)
     if traj is not None:
-        traj = np.array(traj)
-        ax.plot3D(traj[:, 0], traj[:, 1], traj[:, 2], 'b-')
-        ax.scatter3D(traj[:, 0], traj[:, 1], traj[:, 2], color='b')
-    ax.scatter3D(start_state[0], start_state[1], start_state[2], 'go', zorder=10, s=100)
-    ax.scatter3D(goal_state[0], goal_state[1], goal_state[2], 'ro', zorder=10, s=100)
+        traj = to_numpy(traj)
+        ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
+    ax.plot(to_numpy(start_state[0]), to_numpy(start_state[1]), 'go', markersize=7)
+    ax.plot(to_numpy(goal_state[0]), to_numpy(goal_state[1]), 'ro', markersize=7)
     ax.set_aspect('equal')
     plt.show()
+
 

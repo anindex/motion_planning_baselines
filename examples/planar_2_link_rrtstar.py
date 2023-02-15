@@ -31,7 +31,7 @@ if __name__ == "__main__":
     max_time = 60.
 
     start_state = torch.tensor([-np.pi/2, 0], **tensor_args)
-    goal_state = torch.tensor([0, 0], **tensor_args)
+    goal_state = torch.tensor([np.pi-0.05, 0], **tensor_args)
 
     rrt_params = dict(
         env=env,
