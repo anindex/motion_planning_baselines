@@ -11,10 +11,10 @@ from robot_envs.base_envs.panda_env_7d import PandaEnv7D
 
 
 if __name__ == "__main__":
-    seed = 7
+    seed = 9
     fix_random_seed(seed)
 
-    tensor_args = {'device': 'cpu', 'dtype': torch.float32}
+    tensor_args = {'device': 'cuda', 'dtype': torch.float32}
 
     # -------------------------------- Environment ---------------------------------
     spheres = [
