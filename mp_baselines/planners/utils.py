@@ -56,9 +56,9 @@ def purge_duplicates_from_traj(path, eps=1e-6):
     return selection
 
 
-def get_collision_free_trajectories(trajs, obst_map):
-    trajs_idxs_not_in_collision = 1 - obst_map.get_collisions(trajs)
-    free_trajs_idxs = trajs_idxs_not_in_collision.all(dim=-1)
+def get_collision_free_trajectories(trajs, env):
+    trajs_idxs_not_in_collision = 1 - env.compute_collision(trajs)
+    free_trajs_idxs = torch.argwhere(trajs_idxs_not_in_collision.all(dim=-1))
     free_trajs = trajs[free_trajs_idxs, :, :]
     return free_trajs_idxs, free_trajs
 
