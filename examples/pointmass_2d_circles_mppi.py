@@ -1,3 +1,5 @@
+raise NotImplementedError
+
 import time
 import torch
 import random

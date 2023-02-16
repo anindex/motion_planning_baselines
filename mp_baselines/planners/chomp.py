@@ -1,6 +1,4 @@
 import torch
-import torch.distributions as dist
-import matplotlib.pyplot as plt
 
 from mp_baselines.planners.base import OptimizationPlanner
 

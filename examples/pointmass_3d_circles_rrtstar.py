@@ -13,7 +13,7 @@ from mp_baselines.planners.rrt_star import RRTStar
 from torch_planning_objectives.fields.primitive_distance_fields import Sphere
 
 
-def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1):
+def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1, tensor_args=None):
     # Generates a grid (rows, cols, heights) of circles
     distance_from_wall = 0.1
     centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
@@ -25,7 +25,7 @@ def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1):
     z_flat = Z.flatten()
     centers = np.array([x_flat, y_flat, z_flat]).T
     radii = np.ones(x_flat.shape[0]) * radius
-    primitive_obst_list = [Sphere(centers, radii)]
+    primitive_obst_list = [Sphere(centers, radii, tensor_args=tensor_args)]
     return primitive_obst_list
 
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     cols = 5
     heights = 5
     radius = 0.075
-    obst_list = create_grid_circles(rows, cols, heights, radius)
+    obst_list = create_grid_circles(rows, cols, heights, radius, tensor_args=tensor_args)
 
     obst_params = dict(
         map_dim=map_dim,

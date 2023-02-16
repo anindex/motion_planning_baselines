@@ -308,7 +308,7 @@ class RRTStar(MPPlanner):
         return qs
 
     def collision_fn(self, qs, **observation):
-        return self.env.compute_collision(qs).squeeze()
+        return self.env._compute_collision(qs).squeeze()
 
     def sample_fn(self, without_collision=True, **observation):
         if without_collision:

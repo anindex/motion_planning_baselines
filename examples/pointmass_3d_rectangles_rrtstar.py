@@ -12,7 +12,7 @@ from mp_baselines.planners.rrt_star import RRTStar
 from torch_planning_objectives.fields.primitive_distance_fields import Box
 
 
-def fixed_rectangles():
+def fixed_rectangles(tensor_args=None):
     rectangles_bl_tr = list()
     # bottom left xy, top right xy coordinates
     halfside = 0.2
@@ -49,7 +49,7 @@ def fixed_rectangles():
 
     centers = np.array(centers)
     sizes = np.array(sizes)
-    obst_list = [Box(centers, sizes)]
+    obst_list = [Box(centers, sizes, tensor_args=tensor_args)]
 
     return obst_list
 
@@ -69,10 +69,6 @@ if __name__ == "__main__":
     cell_size = 0.05
     map_dim = [2, 2, 2]
 
-    rows = 5
-    cols = 5
-    heights = 5
-    radius = 0.075
     obst_list = fixed_rectangles()
 
     obst_params = dict(
@@ -141,5 +137,4 @@ if __name__ == "__main__":
     ax.scatter3D(start_state_np[0], start_state_np[1], start_state_np[2], 'go', zorder=10, s=100)
     ax.scatter3D(goal_state_np[0], goal_state_np[1], goal_state_np[2], 'ro', zorder=10, s=100)
     ax.view_init(azim=0, elev=90)
-    ax.set_aspect('equal')
     plt.show()

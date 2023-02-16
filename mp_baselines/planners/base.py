@@ -207,5 +207,5 @@ class OptimizationPlanner(MPPlanner):
         if self.cost is None:
             costs = torch.zeros(self.num_particles, )
         else:
-            costs = self.cost.eval(state_trajectories, **observation)
+            costs = self.cost(state_trajectories, **observation)
         return costs

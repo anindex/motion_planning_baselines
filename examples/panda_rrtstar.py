@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     # Optimize
     start = time.time()
-    traj_raw = planner.optimize(debug=True, informed=False, refill_samples_buffer=True)
+    traj_raw = planner.optimize(debug=True, informed=True, refill_samples_buffer=True)
     print(f"{elapsed_time(start):.3f} seconds")
 
     # ---------------------------------------------------------------------------
@@ -100,5 +100,6 @@ if __name__ == "__main__":
     if traj_raw is None:
         traj_raw = extend_path(env.distance_q, start_state, goal_state, max_step=np.pi/2, max_dist=torch.inf, tensor_args=tensor_args)
 
-    env.render(traj=traj_raw, ax=ax)
+    env.render(ax=ax)
+    env.render_trajectory(traj=traj_raw, ax=ax)
     plt.show()
