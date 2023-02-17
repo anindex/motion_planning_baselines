@@ -11,8 +11,10 @@ from robot_envs.base_envs.panda_env_base import PandaEnvBase
 from torch_kinematics_tree.geometrics.utils import to_torch
 from torch_planning_objectives.fields.primitive_distance_fields import Sphere, Box, InfiniteCylinder
 
+
+
 if __name__ == "__main__":
-    seed = 0
+    seed = 3
     fix_random_seed(seed)
 
     tensor_args = {'device': 'cpu', 'dtype': torch.float64}
@@ -103,3 +105,5 @@ if __name__ == "__main__":
     env.render(ax=ax)
     env.render_trajectory(traj=traj_raw, ax=ax)
     plt.show()
+
+    # env.render_physics(traj_raw)
