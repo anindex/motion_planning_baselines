@@ -103,7 +103,7 @@ if __name__ == "__main__":
         traj_raw = extend_path(env.distance_q, start_state, goal_state, max_step=np.pi/2, max_dist=torch.inf, tensor_args=tensor_args)
 
     env.render(ax=ax)
-    env.render_trajectory(traj=traj_raw, ax=ax)
+    env.render_trajectories(ax, [traj_raw])
     plt.show()
 
     # env.render_physics(traj_raw)

@@ -120,6 +120,6 @@ if __name__ == "__main__":
     # plot path
     traj = trajectories[0]
     traj_pos = env.get_q_position(traj)
-    env.render_trajectory(traj=traj_pos, ax=ax)
+    env.render_trajectories(ax, [traj_pos])
     plt.show()
 

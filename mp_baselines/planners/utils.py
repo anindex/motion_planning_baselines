@@ -1,4 +1,6 @@
 import time
+
+import einops
 import numpy as np
 import torch
 from scipy import interpolate
@@ -57,10 +59,19 @@ def purge_duplicates_from_traj(path, eps=1e-6):
 
 
 def get_collision_free_trajectories(trajs, env):
-    trajs_idxs_not_in_collision = 1 - env.compute_collision(trajs)
-    free_trajs_idxs = torch.argwhere(trajs_idxs_not_in_collision.all(dim=-1))
-    free_trajs = trajs[free_trajs_idxs, :, :]
-    return free_trajs_idxs, free_trajs
+    trajs_new = trajs
+    if trajs.ndim == 4:  # n_goals, batch of trajectories, length, dim
+        trajs_new = einops.rearrange(trajs, 'n b l d -> (n b) l d')
+    trajs_idxs_not_in_collision = ~env.compute_collision(trajs_new)
+    if trajs.ndim == 4:
+        trajs_idxs_not_in_collision = einops.rearrange(trajs_idxs_not_in_collision, '(n b) l -> n b l', n=trajs.shape[0])
+    trajs_idxs_not_in_collision = trajs_idxs_not_in_collision.all(dim=-1)
+    free_trajs_idxs = torch.argwhere(trajs_idxs_not_in_collision)
+    if trajs.ndim == 4:
+        free_trajs = trajs[free_trajs_idxs[:, 0], free_trajs_idxs[:, 1], :, :]
+    else:
+        free_trajs = trajs[free_trajs_idxs, :, :]
+    return trajs_idxs_not_in_collision, free_trajs
 
 
 def smoothen_trajectory(traj, traj_len=30, tensor_args=None):

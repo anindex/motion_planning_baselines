@@ -181,7 +181,9 @@ class RRTStar(MPPlanner):
 
         # best_possible_cost = distance_fn(goal, start) # if straight line is possible
         start_time = time.time()
+        start_time_iter = time.time()
         while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
+
             iteration += 1
 
             # Stop if the cost does not improve over iterations
@@ -211,9 +213,10 @@ class RRTStar(MPPlanner):
 
             if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0 or iters_after_first_success == 1:
                 if debug:
-                    self.print_info(iteration, start_time, success, goal_n)
+                    self.print_info(iteration, start_time_iter, start_time, success, goal_n)
 
             # Informed RRT*
+            start_time_iter = time.time()
             if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
                 self.remove_last_pre_sample()
                 continue
@@ -272,7 +275,7 @@ class RRTStar(MPPlanner):
                         if n_dist < eps:
                             n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
 
-        self.print_info(iteration, start_time, success, goal_n)
+        self.print_info(iteration, start_time_iter, start_time, success, goal_n)
 
         if goal_n is None:
             return None
@@ -282,8 +285,10 @@ class RRTStar(MPPlanner):
 
         return purge_duplicates_from_traj(path, eps=1e-6)
 
-    def print_info(self, iteration, start_time, success, goal_n):
-        print(f'Iteration: {iteration} | Nodes: {self.nodes_torch.shape[0]} | Time: {elapsed_time(start_time):.3f} '
+    def print_info(self, iteration, start_time_iter, start_time, success, goal_n):
+        print(f'Iteration: {iteration:5}/{self.n_iters:5} | Nodes: {self.nodes_torch.shape[0]} '
+              f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
+              f'| Time: {elapsed_time(start_time):.3f} '
               f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.6f}')
     
     def random_collision_free(self, **observation):
