@@ -62,7 +62,7 @@ def get_collision_free_trajectories(trajs, env):
     trajs_new = trajs
     if trajs.ndim == 4:  # n_goals, batch of trajectories, length, dim
         trajs_new = einops.rearrange(trajs, 'n b l d -> (n b) l d')
-    trajs_idxs_not_in_collision = ~env.compute_collision(trajs_new)
+    trajs_idxs_not_in_collision = torch.logical_not(env.compute_collision(trajs_new))
     if trajs.ndim == 4:
         trajs_idxs_not_in_collision = einops.rearrange(trajs_idxs_not_in_collision, '(n b) l -> n b l', n=trajs.shape[0])
     trajs_idxs_not_in_collision = trajs_idxs_not_in_collision.all(dim=-1)
