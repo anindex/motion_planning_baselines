@@ -96,7 +96,7 @@ class RRTStar(MPPlanner):
             goal_prob: float = .1,
             goal_state: torch.Tensor = None,
             tensor_args: dict = None,
-            n_pre_samples=1000,
+            n_pre_samples=10000,
             pre_samples=None
     ):
         super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
