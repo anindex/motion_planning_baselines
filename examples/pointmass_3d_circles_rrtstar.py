@@ -10,7 +10,7 @@ from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
 from torch_kinematics_tree.geometrics.utils import to_numpy
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, build_obstacle_map
 from mp_baselines.planners.rrt_star import RRTStar
-from torch_planning_objectives.fields.primitive_distance_fields import Sphere
+from torch_planning_objectives.fields.primitive_distance_fields import SphereField
 
 
 def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1, tensor_args=None):
@@ -25,7 +25,7 @@ def create_grid_circles(rows=5, cols=5, heights=5, radius=0.1, tensor_args=None)
     z_flat = Z.flatten()
     centers = np.array([x_flat, y_flat, z_flat]).T
     radii = np.ones(x_flat.shape[0]) * radius
-    primitive_obst_list = [Sphere(centers, radii, tensor_args=tensor_args)]
+    primitive_obst_list = [SphereField(centers, radii, tensor_args=tensor_args)]
     return primitive_obst_list
 
 

@@ -289,7 +289,7 @@ class RRTStar(MPPlanner):
         print(f'Iteration: {iteration:5}/{self.n_iters:5} | Nodes: {self.nodes_torch.shape[0]} '
               f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
               f'| Time: {elapsed_time(start_time):.3f} '
-              f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.6f}')
+              f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.12f}')
     
     def random_collision_free(self, **observation):
         """

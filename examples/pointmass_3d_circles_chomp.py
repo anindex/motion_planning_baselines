@@ -10,7 +10,7 @@ from mp_baselines.planners.utils import elapsed_time
 from robot_envs.base_envs.pointmass_env_base import PointMassEnvBase
 from stoch_gpmp.costs.cost_functions import CostComposite
 from torch_kinematics_tree.geometrics.utils import to_torch, to_numpy
-from torch_planning_objectives.fields.primitive_distance_fields import Sphere
+from torch_planning_objectives.fields.primitive_distance_fields import SphereField
 
 if __name__ == "__main__":
     seed = 0

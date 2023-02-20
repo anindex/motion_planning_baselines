@@ -9,7 +9,7 @@ from mp_baselines.planners.rrt_star import RRTStar
 from mp_baselines.planners.utils import elapsed_time, extend_path
 from robot_envs.base_envs.panda_env_base import PandaEnvBase
 from torch_kinematics_tree.geometrics.utils import to_torch
-from torch_planning_objectives.fields.primitive_distance_fields import Sphere, Box, InfiniteCylinder
+from torch_planning_objectives.fields.primitive_distance_fields import SphereField, BoxField, InfiniteCylinderField
 
 
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Environment ---------------------------------
     obst_primitives_l = [
-        Sphere([
+        SphereField([
                 # [0.5, 0.5, 0.5],
                 # [-0.5, -0.5, 0.5],
                 [0.25, -0.5, 0.5]
@@ -41,17 +41,17 @@ if __name__ == "__main__":
         #      ],
         #     tensor_args=tensor_args
         #     ),
-        InfiniteCylinder(
-            [[1, 1, 1],
-             [0.5, 0.5, 0.5],
-             [-0.4, -0.5, 0.5],
-             ],
-            [0.3,
-             0.2,
-             0.25
-             ],
-            tensor_args=tensor_args
-        )
+        # InfiniteCylinderField(
+        #     [[1, 1, 1],
+        #      [0.5, 0.5, 0.5],
+        #      [-0.4, -0.5, 0.5],
+        #      ],
+        #     [0.3,
+        #      0.2,
+        #      0.25
+        #      ],
+        #     tensor_args=tensor_args
+        # )
     ]
 
     env = PandaEnvBase(

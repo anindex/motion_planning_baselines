@@ -9,7 +9,7 @@ from mp_baselines.planners.utils import elapsed_time, to_numpy
 from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
 from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, build_obstacle_map
 from mp_baselines.planners.rrt_star import RRTStar
-from torch_planning_objectives.fields.primitive_distance_fields import Box
+from torch_planning_objectives.fields.primitive_distance_fields import BoxField
 
 
 def fixed_rectangles(tensor_args=None):
@@ -49,7 +49,7 @@ def fixed_rectangles(tensor_args=None):
 
     centers = np.array(centers)
     sizes = np.array(sizes)
-    obst_list = [Box(centers, sizes, tensor_args=tensor_args)]
+    obst_list = [BoxField(centers, sizes, tensor_args=tensor_args)]
 
     return obst_list
 

@@ -9,7 +9,7 @@ from mp_baselines.planners.utils import elapsed_time
 from robot_envs.base_envs.panda_env_base import PandaEnvBase
 from stoch_gpmp.costs.cost_functions import CostComposite
 from torch_kinematics_tree.geometrics.utils import to_numpy
-from torch_planning_objectives.fields.primitive_distance_fields import Sphere, InfiniteCylinder
+from torch_planning_objectives.fields.primitive_distance_fields import SphereField, InfiniteCylinderField
 
 if __name__ == "__main__":
     seed = 5
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Environment ---------------------------------
     obst_primitives_l = [
-        Sphere([
+        SphereField([
                 # [0.5, 0.5, 0.5],
                 # [-0.5, -0.5, 0.5],
                 [0.25, -0.5, 1.0]
