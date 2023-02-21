@@ -180,7 +180,7 @@ class RRTConnect(RRTBase):
 
     def print_info(self, iteration, start_time_iter, start_time, success):
         print(f'Iteration: {iteration:5}/{self.n_iters:5} '
-              f'| Nodes: {self.nodes_tree_1_torch.shape[0] + self.nodes_tree_2_torch.shape[0]} '
+              f'| Nodes: {len(self.nodes_tree_1) + len(self.nodes_tree_2)} '
               f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
               f'| Time: {elapsed_time(start_time):.3f} '
               f'| Success: {success}'
