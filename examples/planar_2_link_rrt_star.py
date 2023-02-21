@@ -86,7 +86,7 @@ if __name__ == "__main__":
         print('...finished Creating animation')
 
         print('Saving video...')
-        ani.save(os.path.join('planar_2_link_rrtstar.mp4'), fps=int(len(traj_pos) / animation_time_in_seconds), dpi=90)
+        ani.save(os.path.join('planar_2_link_rrt_star.mp4'), fps=int(len(traj_pos) / animation_time_in_seconds), dpi=90)
         print('...finished Saving video')
 
     # ----------------- Space of collision-free configurations -----------------

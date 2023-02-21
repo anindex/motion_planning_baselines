@@ -5,7 +5,7 @@ import torch
 import random
 import matplotlib.pyplot as plt
 
-from examples.pointmass_2d_circles_rrtstar import create_grid_circles
+from examples.pointmass_2d_circles_rrt_star import create_grid_circles
 from experiment_launcher.utils import fix_random_seed
 from mp_baselines.planners.utils import elapsed_time
 from robot_envs.base_envs.pointmass_env_base import PointMassEnvBase

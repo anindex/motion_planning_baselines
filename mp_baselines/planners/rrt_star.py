@@ -8,6 +8,7 @@ import torch
 import time
 import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
+from mp_baselines.planners.rrt_base import RRTBase
 from mp_baselines.planners.utils import elapsed_time, safe_path, purge_duplicates_from_traj, extend_path
 
 
@@ -79,7 +80,7 @@ class OptimalNode:
     __repr__ = __str__
 
 
-class RRTStar(MPPlanner):
+class RRTStar(RRTBase):
 
     def __init__(
             self,
@@ -99,64 +100,31 @@ class RRTStar(MPPlanner):
             n_pre_samples=10000,
             pre_samples=None
     ):
-        super(RRTStar, self).__init__(name='RRTStar', tensor_args=tensor_args)
-        self.env = env
-        self.n_iters = n_iters
+        super(RRTStar, self).__init__(
+            'RRTStar',
+            env,
+            n_iters,
+            start_state,
+            goal_state,
+            step_size,
+            n_radius,
+            max_time,
+            tensor_args,
+            n_pre_samples,
+            pre_samples
+        )
 
         self.n_iters_after_success = n_iters_after_success
         self.max_best_cost_iters = max_best_cost_iters if max_best_cost_iters is not None else n_iters
         self.cost_eps = cost_eps
 
         # RRTStar params
-        self.step_size = step_size
-        self.n_radius = n_radius
         assert n_knn >= 0, "knn parameter is < 0"
         self.n_knn = n_knn
-        self.max_time = max_time
         self.goal_prob = goal_prob
-
-        self.start_state = start_state
-        self.goal_state = goal_state
-
-        self.n_pre_samples = n_pre_samples
-        self.pre_samples = pre_samples
-        self.last_sample_idx = None
-        self.n_samples_refill = self.n_pre_samples
 
         self.nodes = None
         self.nodes_torch = None
-        self.reset()
-
-    def reset(self):
-        self.nodes = []
-        self.nodes_torch = None
-
-        # Create pre collision-free samples
-        n_uniform_samples = self.n_pre_samples - (self.pre_samples.shape[0] if self.pre_samples is not None else 0)
-        uniform_samples = self.create_uniform_samples(n_uniform_samples)
-        if self.pre_samples is not None:
-            self.pre_samples = torch.cat((self.pre_samples, uniform_samples), dim=0)
-        else:
-            self.pre_samples = uniform_samples
-
-    def create_uniform_samples(self, n_samples, max_samples=1000, **observation):
-        return self.env.random_coll_free_q(n_samples, max_samples)
-
-    def remove_last_pre_sample(self):
-        # https://discuss.pytorch.org/t/how-to-remove-an-element-from-a-1-d-tensor-by-index/23109/3
-        if len(self.pre_samples) > 0:
-            i = self.last_sample_idx
-            self.pre_samples = torch.cat([self.pre_samples[:i], self.pre_samples[i+1:]])
-
-    def optimize(
-            self,
-            opt_iters=None,
-            **observation
-    ):
-        """
-        Optimize for best trajectory at current state
-        """
-        return self._run_optimization(opt_iters, **observation)
 
     def _run_optimization(self, opt_iters, **observation):
         """
@@ -170,8 +138,13 @@ class RRTStar(MPPlanner):
         debug = observation.get('debug', False)
         if self.collision_fn(self.start_state).squeeze() or self.collision_fn(self.goal_state).squeeze():
             return None
-        self.nodes = initial_nodes if initial_nodes is not None else [OptimalNode(self.start_state)]
-        self.nodes_torch = initial_nodes if initial_nodes is not None else OptimalNode(self.start_state).config
+        if initial_nodes is not None:
+            self.nodes = initial_nodes
+            self.nodes_torch = torch.vstack([node.config for node in self.nodes])
+        else:
+            self.nodes = [OptimalNode(self.start_state)]
+            self.nodes_torch = OptimalNode(self.start_state).config
+
         goal_n = None
         iteration = -1
         iters_after_first_success = 0
@@ -222,9 +195,7 @@ class RRTStar(MPPlanner):
                 continue
 
             # nearest node to the sampled node
-            distances = self.distance_fn(self.nodes_torch, s)
-            min_idx = torch.argmin(distances)
-            nearest = self.nodes[min_idx]
+            nearest = self.get_nearest_node(self.nodes, self.nodes_torch, s)
 
             # create a safe path from the sampled node to the nearest node
             extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
@@ -290,42 +261,6 @@ class RRTStar(MPPlanner):
               f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
               f'| Time: {elapsed_time(start_time):.3f} '
               f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.12f}')
-    
-    def random_collision_free(self, **observation):
-        """
-        Returns: random positions in environment space not in collision
-        """
-        refill_samples_buffer = observation.get('refill_samples_buffer', False)
-        if len(self.pre_samples) > 0:
-            qs = self.get_pre_sample()
-        elif refill_samples_buffer:
-            self.pre_samples = self.create_uniform_samples(self.n_samples_refill, **observation)
-            qs = self.get_pre_sample()
-        else:
-            qs = self.create_uniform_samples(1, **observation)
 
-        return qs
-
-    def get_pre_sample(self):
-        idx = torch.randperm(len(self.pre_samples))[0]
-        qs = self.pre_samples[idx]
-        self.last_sample_idx = idx
-        return qs
-
-    def collision_fn(self, qs, **observation):
-        return self.env._compute_collision(qs).squeeze()
-
-    def sample_fn(self, without_collision=True, **observation):
-        if without_collision:
-            return self.random_collision_free(**observation)
-        else:
-            return self.env.random_q()
-
-    def distance_fn(self, q1, q2):
-        return self.env.distance_q(q1, q2)
-
-    def extend_fn(self, q1, q2, max_step=0.03, max_dist=0.1):
-        return extend_path(self.distance_fn, q1, q2, max_step, max_dist, tensor_args=self.tensor_args)
-
-    def render(self, ax):
+    def render(self, ax, **kwargs):
         self.nodes[0].render(ax)

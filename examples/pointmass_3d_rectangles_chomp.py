@@ -3,8 +3,8 @@ import time
 import matplotlib.pyplot as plt
 import torch
 
-from examples.pointmass_3d_circles_rrtstar import create_grid_circles
-from examples.pointmass_3d_rectangles_rrtstar import fixed_rectangles
+from examples.pointmass_3d_circles_rrt_star import create_grid_circles
+from examples.pointmass_3d_rectangles_rrt_star import fixed_rectangles
 from experiment_launcher.utils import fix_random_seed
 from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.utils import elapsed_time
