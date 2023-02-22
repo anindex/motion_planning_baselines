@@ -89,6 +89,33 @@ def compute_collision_intensity_free_trajs(trajs, env):
     return torch.mean(trajs_percentage_in_collision).item(), torch.std(trajs_percentage_in_collision).item()
 
 
+def success_collision_free_trajs(trajs, env):
+    # if at least one trajectory is collision free, then we consider success
+    trajs_idxs_not_in_collision, _ = get_collision_free_trajectories(trajs, env)
+    count_trajs_not_in_collision = torch.count_nonzero(trajs_idxs_not_in_collision).item()
+    if count_trajs_not_in_collision > 0:
+        return 1
+    else:
+        return 0
+
+
+def get_trajs_free_coll(trajs, env):
+    trajs_idxs_not_in_collision, free_trajs = get_collision_free_trajectories(trajs, env)
+    idxs_free = torch.argwhere(trajs_idxs_not_in_collision).squeeze()
+    idxs_coll = torch.argwhere(torch.logical_not(trajs_idxs_not_in_collision)).squeeze()
+    trajs_free = None
+    trajs_coll = None
+    if idxs_free.nelement() > 0:
+        trajs_free = trajs[idxs_free]
+        if trajs_free.ndim == 2:
+            trajs_free = trajs_free.unsqueeze(0)
+    if idxs_coll.nelement() > 0:
+        trajs_coll = trajs[idxs_coll]
+        if trajs_coll.ndim == 2:
+            trajs_coll = trajs_coll.unsqueeze(0)
+    return trajs_free, trajs_coll
+
+
 def smoothen_trajectory(traj, traj_len=30, tensor_args=None):
     traj = to_numpy(traj)
     try:
