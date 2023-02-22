@@ -58,11 +58,11 @@ def purge_duplicates_from_traj(path, eps=1e-6):
     return selection
 
 
-def get_collision_free_trajectories(trajs, env, return_per_viapoint=False):
+def get_collision_free_trajectories(trajs, env, return_per_viapoint=False, margin=0.001):
     trajs_new = trajs
     if trajs.ndim == 4:  # n_goals, batch of trajectories, length, dim
         trajs_new = einops.rearrange(trajs, 'n b l d -> (n b) l d')
-    trajs_idxs_not_in_collision_via_points = torch.logical_not(env.compute_collision(trajs_new))
+    trajs_idxs_not_in_collision_via_points = torch.logical_not(env.compute_collision(trajs_new, margin=margin))
     if trajs.ndim == 4:
         trajs_idxs_not_in_collision_via_points = einops.rearrange(trajs_idxs_not_in_collision_via_points, '(n b) l -> n b l', n=trajs.shape[0])
     trajs_idxs_not_in_collision = trajs_idxs_not_in_collision_via_points.all(dim=-1)
