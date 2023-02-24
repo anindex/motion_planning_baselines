@@ -58,10 +58,26 @@ def purge_duplicates_from_traj(path, eps=1e-6):
     return selection
 
 
+def interpolate_traj_via_points(env, trajs, num_intepolation_traj=10):
+    trajs = env.get_q_position(trajs)
+    if num_intepolation_traj > 0:
+        assert trajs.ndim > 1
+        traj_dim = trajs.shape
+        alpha = torch.linspace(0, 1, num_intepolation_traj + 2).type_as(trajs)[1:num_intepolation_traj + 1]
+        alpha = alpha.view((1,) * len(traj_dim[:-1]) + (-1, 1))
+        interpolated_trajs = trajs[..., 0:traj_dim[-2] - 1, None, :] * alpha + \
+                             trajs[..., 1:traj_dim[-2], None, :] * (1 - alpha)
+        interpolated_trajs = interpolated_trajs.view(traj_dim[:-2] + (-1, env.q_n_dofs))
+    else:
+        interpolated_trajs = trajs
+    return interpolated_trajs
+
+
 def get_collision_free_trajectories(trajs, env, return_per_viapoint=False, margin=0.001):
     trajs_new = trajs
     if trajs.ndim == 4:  # n_goals, batch of trajectories, length, dim
         trajs_new = einops.rearrange(trajs, 'n b l d -> (n b) l d')
+    trajs_new = interpolate_traj_via_points(env, trajs_new)
     trajs_idxs_not_in_collision_via_points = torch.logical_not(env.compute_collision(trajs_new, margin=margin))
     if trajs.ndim == 4:
         trajs_idxs_not_in_collision_via_points = einops.rearrange(trajs_idxs_not_in_collision_via_points, '(n b) l -> n b l', n=trajs.shape[0])
@@ -135,7 +151,7 @@ def compute_smothness(trajs, env):
     return smoothness
 
 
-def smoothen_trajectory(traj, traj_len=30, tensor_args=None):
+def smoothen_trajectory(traj, traj_len=30, zero_velocity=True, tensor_args=None):
     traj = to_numpy(traj)
     try:
         # bc_type='clamped' for zero velocities at start and finish
@@ -147,7 +163,10 @@ def smoothen_trajectory(traj, traj_len=30, tensor_args=None):
         return smoothen_trajectory(traj, traj_len=traj_len, tensor_args=tensor_args)
 
     pos = spline_pos(np.linspace(0, 1, traj_len))
-    vel = spline_vel(np.linspace(0, 1, traj_len))
+    if zero_velocity:
+        vel = np.zeros_like(pos)
+    else:
+        vel = spline_vel(np.linspace(0, 1, traj_len))
     return to_torch(pos, **tensor_args), to_torch(vel, **tensor_args)
 
 
