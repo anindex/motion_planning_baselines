@@ -123,9 +123,10 @@ class RRTConnect(RRTBase):
             # Swap trees
             # TODO - implement swap
             # swap = random_swap(self.nodes_tree_1, self.nodes_tree_2)
-            # if swap:
-            #     self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
-            #     self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
+            swap = True
+            if swap:
+                self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
+                self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
 
             # Sample new node
             target = self.sample_fn(**observation)
@@ -165,12 +166,22 @@ class RRTConnect(RRTBase):
             self.nodes_tree_2.append(n2)
             self.nodes_tree_2_torch = torch.vstack((self.nodes_tree_2_torch, n2.config))
 
+            if swap:
+                self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
+                self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
+
             # if the last node in path is the same as the proposed node, the two trees are connected and terminate
             if torch.allclose(n1.config, n2.config):
                 success = True
+
+                if swap:
+                    n1, n2 = n2, n1
+
                 path1, path2 = n1.retrace(), n2.retrace()
+
                 # if swap:
                 #     path1, path2 = path2, path1
+
                 path = configs(path1[:-1] + path2[::-1])
                 break
 
