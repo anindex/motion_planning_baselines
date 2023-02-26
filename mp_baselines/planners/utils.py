@@ -102,7 +102,7 @@ def compute_collision_intensity_free_trajs(trajs, env):
     traj_len = trajs_idxs_not_in_collision_via_points.shape[-1]
     trajs_percentage_not_in_collision = torch.count_nonzero(trajs_idxs_not_in_collision_via_points, dim=-1) / traj_len
     trajs_percentage_in_collision = 1 - trajs_percentage_not_in_collision
-    return torch.mean(trajs_percentage_in_collision).item(), torch.std(trajs_percentage_in_collision).item()
+    return trajs_percentage_in_collision
 
 
 def success_collision_free_trajs(trajs, env):
