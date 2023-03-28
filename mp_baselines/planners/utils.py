@@ -139,7 +139,7 @@ def compute_path_length(trajs, env):
     return path_length
 
 
-def compute_smothness(trajs, env):
+def compute_smoothness(trajs, env):
     assert trajs.ndim == 3
     if trajs.shape[-1] == env.q_n_dofs:
         # if there is no velocity information in the trajectory, compute it via finite difference
