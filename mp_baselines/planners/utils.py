@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from scipy import interpolate
 
+from torch_robotics.torch_utils.torch_utils import to_numpy, to_torch
+
 
 def elapsed_time(start_time):
     return time.time() - start_time
@@ -168,50 +170,3 @@ def smoothen_trajectory(traj, traj_len=30, zero_velocity=True, tensor_args=None)
     else:
         vel = spline_vel(np.linspace(0, 1, traj_len))
     return to_torch(pos, **tensor_args), to_torch(vel, **tensor_args)
-
-
-@torch.jit.script
-def tensor_linspace(start: torch.Tensor, end: torch.Tensor, steps: int = 10):
-    # https://github.com/zhaobozb/layout2im/blob/master/models/bilinear.py#L246
-    """
-    Vectorized version of torch.linspace.
-    Inputs:
-    - start: Tensor of any shape
-    - end: Tensor of the same shape as start
-    - steps: Integer
-    Returns:
-    - out: Tensor of shape start.size() + (steps,), such that
-      out.select(-1, 0) == start, out.select(-1, -1) == end,
-      and the other elements of out linearly interpolate between
-      start and end.
-    """
-    assert start.size() == end.size()
-    view_size = start.size() + (1,)
-    w_size = (1,) * start.dim() + (steps,)
-    out_size = start.size() + (steps,)
-
-    start_w = torch.linspace(1, 0, steps=steps).to(start)
-    start_w = start_w.view(w_size).expand(out_size)
-    end_w = torch.linspace(0, 1, steps=steps).to(start)
-    end_w = end_w.view(w_size).expand(out_size)
-
-    start = start.contiguous().view(view_size).expand(out_size)
-    end = end.contiguous().view(view_size).expand(out_size)
-
-    out = start_w * start + end_w * end
-    return out
-
-
-def to_torch(x, device='cpu', dtype=torch.float, requires_grad=False):
-    if torch.is_tensor(x):
-        return x.clone().to(device=device, dtype=dtype).requires_grad_(requires_grad)
-    return torch.tensor(x, dtype=dtype, device=device, requires_grad=requires_grad)
-
-
-def to_numpy(x, dtype=np.float32):
-    if torch.is_tensor(x):
-        x = x.detach().cpu().numpy().astype(dtype)
-        return x
-    return np.array(x).astype(dtype)
-
-

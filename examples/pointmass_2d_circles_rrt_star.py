@@ -13,18 +13,6 @@ from torch_planning_objectives.fields.occupancy_map.map_generator import generat
 from torch_planning_objectives.fields.primitive_distance_fields import SphereField
 
 
-def create_grid_circles(rows=5, cols=5, radius=0.1, tensor_args=None):
-    # Generates a grid (rows, cols) of circles
-    distance_from_wall = 0.1
-    centers_x = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, cols)
-    centers_y = np.linspace(-1 + distance_from_wall, 1 - distance_from_wall, rows)
-    X, Y = np.meshgrid(centers_x, centers_y)
-    x_flat = X.flatten()
-    y_flat = Y.flatten()
-    centers = np.array([x_flat, y_flat]).T
-    radii = np.ones(x_flat.shape[0]) * radius
-    primitive_obst_list = [SphereField(centers, radii, tensor_args=tensor_args)]
-    return primitive_obst_list
 
 
 if __name__ == "__main__":

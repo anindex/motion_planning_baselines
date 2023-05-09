@@ -1,56 +1,55 @@
 import time
 
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 
-from examples.pointmass_2d_circles_rrt_star import create_grid_circles
 from experiment_launcher.utils import fix_random_seed
 from mp_baselines.planners.rrt_connect import RRTConnect
-from mp_baselines.planners.rrt_star import RRTStar
 from mp_baselines.planners.utils import elapsed_time
-from robot_envs.base_envs.obstacle_map_env import ObstacleMapEnv
-from torch_kinematics_tree.geometrics.utils import to_numpy
-from torch_planning_objectives.fields.occupancy_map.map_generator import generate_obstacle_map, build_obstacle_map
-from torch_planning_objectives.fields.primitive_distance_fields import SphereField
-
+from torch_robotics.environment.utils import create_grid_spheres
+from torch_robotics.torch_utils.torch_utils import to_numpy, get_torch_device
 
 if __name__ == "__main__":
     seed = 5
     fix_random_seed(seed)
 
-    device = 'cpu'
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    device = get_torch_device()
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     # -------------------------------- Environment ---------------------------------
-    limits = torch.tensor([[-1, 1], [-1, 1]], **tensor_args)
+    ws_limits = torch.tensor([[-1, 1], [-1, 1]], **tensor_args)
 
-    ## Obstacle map
+    # Obstacles
     cell_size = 0.01
     map_dim = [2, 2]
 
     rows = 7
     cols = 7
     radius = 0.075
-    obst_list = create_grid_circles(rows, cols, radius, tensor_args=tensor_args)
+    obj_list = create_grid_spheres(rows=rows, cols=cols, heights=0, radius=radius, tensor_args=tensor_args)
 
-    obst_params = dict(
+    env_params = dict(
         map_dim=map_dim,
-        obst_list=obst_list,
+        obj_list=obj_list,
         cell_size=cell_size,
         map_type='direct',
         tensor_args=tensor_args,
     )
-    obst_map = build_obstacle_map(**obst_params)
+    obst_map = build_obstacle_map(**env_params)
 
     env = ObstacleMapEnv(
-        name='circles',
+        name='GridCircles',
         q_n_dofs=2,
-        q_min=limits[:, 0],
-        q_max=limits[:, 1],
+        q_min=ws_limits[:, 0],
+        q_max=ws_limits[:, 1],
         obstacle_map=obst_map,
         tensor_args=tensor_args
     )
+
+    robot = PointMassRobot()
+
+    task = Task(env=env, robot=robot)
+
 
     # -------------------------------- Planner ---------------------------------
     n_iters = 30000
@@ -73,14 +72,12 @@ if __name__ == "__main__":
     )
     planner = RRTConnect(**rrt_params)
 
-    # ---------------------------------------------------------------------------
     # Optimize
     start = time.time()
     traj = planner.optimize(debug=True, informed=True, refill_samples_buffer=True)
     print(f"{elapsed_time(start)} seconds")
 
-    # ---------------------------------------------------------------------------
-    # Plotting
+    # -------------------------------- Plotting ---------------------------------
     fig, ax = plt.subplots()
     planner.render(ax)
     obst_map.plot(ax)
