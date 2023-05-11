@@ -9,7 +9,8 @@ import time
 import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
 from mp_baselines.planners.rrt_base import RRTBase
-from mp_baselines.planners.utils import elapsed_time, safe_path, purge_duplicates_from_traj, extend_path
+from mp_baselines.planners.utils import safe_path, purge_duplicates_from_traj, extend_path
+from torch_robotics.torch_utils.torch_timer import Timer
 
 
 class OptimalNode:
@@ -84,7 +85,7 @@ class RRTStar(RRTBase):
 
     def __init__(
             self,
-            env,
+            task,
             n_iters: int,
             start_state: torch.Tensor,
             n_iters_after_success=None,
@@ -102,7 +103,7 @@ class RRTStar(RRTBase):
     ):
         super(RRTStar, self).__init__(
             'RRTStar',
-            env,
+            task,
             n_iters,
             start_state,
             goal_state,
@@ -153,100 +154,100 @@ class RRTStar(RRTBase):
         success = False
 
         # best_possible_cost = distance_fn(goal, start) # if straight line is possible
-        start_time = time.time()
-        start_time_iter = time.time()
-        while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
 
-            iteration += 1
+        with Timer() as t:
+            while (t.elapsed < self.max_time) and (iteration < self.n_iters):
 
-            # Stop if the cost does not improve over iterations
-            if best_cost_iters >= self.max_best_cost_iters:
-                break
-            if goal_n is not None:
-                if goal_n.cost < best_cost_eps - self.cost_eps:
-                    best_cost_eps = copy(goal_n.cost)
-                    best_cost_iters = 0
-                else:
-                    best_cost_iters += 1
+                iteration += 1
 
-            # Stop if the cost does not improve over  iterations passed after the first success
-            success = goal_n is not None
-            if success:
-                iters_after_first_success += 1
-            if self.n_iters_after_success is not None:
-                if iters_after_first_success > self.n_iters_after_success:
+                # Stop if the cost does not improve over iterations
+                if best_cost_iters >= self.max_best_cost_iters:
                     break
+                if goal_n is not None:
+                    if goal_n.cost < best_cost_eps - self.cost_eps:
+                        best_cost_eps = copy(goal_n.cost)
+                        best_cost_iters = 0
+                    else:
+                        best_cost_iters += 1
 
-            # Sample new node
-            do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
-            if do_goal:
-                s = self.goal_state
-            else:
-                s = self.sample_fn(**observation)
+                # Stop if the cost does not improve over  iterations passed after the first success
+                success = goal_n is not None
+                if success:
+                    iters_after_first_success += 1
+                if self.n_iters_after_success is not None:
+                    if iters_after_first_success > self.n_iters_after_success:
+                        break
 
-            if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0 or iters_after_first_success == 1:
-                if debug:
-                    self.print_info(iteration, start_time_iter, start_time, success, goal_n)
+                # Sample new node
+                do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
+                if do_goal:
+                    s = self.goal_state
+                else:
+                    s = self.sample_fn(**observation)
 
-            # Informed RRT*
-            start_time_iter = time.time()
-            if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
-                self.remove_last_pre_sample()
-                continue
+                if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0 or iters_after_first_success == 1:
+                    if debug:
+                        self.print_info(iteration, t.elapsed, success, goal_n)
 
-            # nearest node to the sampled node
-            nearest = self.get_nearest_node(self.nodes, self.nodes_torch, s)
+                # Informed RRT*
+                start_time_iter = time.time()
+                if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
+                    self.remove_last_pre_sample()
+                    continue
 
-            # create a safe path from the sampled node to the nearest node
-            extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
-            path = safe_path(extended, self.collision_fn)
-            if len(path) == 0:
-                continue
+                # nearest node to the sampled node
+                nearest = self.get_nearest_node(self.nodes, self.nodes_torch, s)
 
-            if not do_goal and torch.allclose(path[-1], s):
-                self.remove_last_pre_sample()
+                # create a safe path from the sampled node to the nearest node
+                extended = self.extend_fn(nearest.config, s, max_step=self.step_size, max_dist=self.n_radius)
+                path = safe_path(extended, self.collision_fn)
+                if len(path) == 0:
+                    continue
 
-            new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
-                nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
+                if not do_goal and torch.allclose(path[-1], s):
+                    self.remove_last_pre_sample()
 
-            if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
-                goal_n = new
-                goal_n.set_solution(True)
+                new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
+                    nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
 
-            # Append the node to the tree
-            self.nodes.append(new)
-            self.nodes_torch = torch.vstack((self.nodes_torch, new.config))
+                if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
+                    goal_n = new
+                    goal_n.set_solution(True)
 
-            # Get neighbors of new node
-            distances = self.distance_fn(self.nodes_torch, new.config)
-            if self.n_knn > 0:
-                # https://discuss.pytorch.org/t/k-nearest-neighbor-in-pytorch/59695
-                knn = distances.topk(min(self.n_knn, len(distances)), largest=False)
-                neighbors_idxs = knn.indices
-            else:
-                neighbors_idxs = torch.argwhere(distances < self.n_radius)
+                # Append the node to the tree
+                self.nodes.append(new)
+                self.nodes_torch = torch.vstack((self.nodes_torch, new.config))
 
-            if neighbors_idxs.nelement() != 0:
-                neighbors_idxs = np.atleast_1d(neighbors_idxs.squeeze().cpu().numpy())
-                try:
-                    neighbors = list(itemgetter(*neighbors_idxs)(self.nodes))
-                except TypeError:
-                    neighbors = [itemgetter(*neighbors_idxs)(self.nodes)]
-            else:
-                neighbors = []
+                # Get neighbors of new node
+                distances = self.distance_fn(self.nodes_torch, new.config)
+                if self.n_knn > 0:
+                    # https://discuss.pytorch.org/t/k-nearest-neighbor-in-pytorch/59695
+                    knn = distances.topk(min(self.n_knn, len(distances)), largest=False)
+                    neighbors_idxs = knn.indices
+                else:
+                    neighbors_idxs = torch.argwhere(distances < self.n_radius)
 
-            # Rewire - update parents
-            for n in neighbors:
-                d = self.distance_fn(n.config, new.config)
-                if (new.cost + d) < n.cost:
-                    extended = self.extend_fn(new.config, n.config, max_step=self.step_size, max_dist=self.n_radius)
-                    n_path = safe_path(extended, self.collision_fn)
-                    if len(n_path) != 0:
-                        n_dist = self.distance_fn(n.config, n_path[-1])
-                        if n_dist < eps:
-                            n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
+                if neighbors_idxs.nelement() != 0:
+                    neighbors_idxs = np.atleast_1d(neighbors_idxs.squeeze().cpu().numpy())
+                    try:
+                        neighbors = list(itemgetter(*neighbors_idxs)(self.nodes))
+                    except TypeError:
+                        neighbors = [itemgetter(*neighbors_idxs)(self.nodes)]
+                else:
+                    neighbors = []
 
-        self.print_info(iteration, start_time_iter, start_time, success, goal_n)
+                # Rewire - update parents
+                for n in neighbors:
+                    d = self.distance_fn(n.config, new.config)
+                    if (new.cost + d) < n.cost:
+                        extended = self.extend_fn(new.config, n.config, max_step=self.step_size, max_dist=self.n_radius)
+                        n_path = safe_path(extended, self.collision_fn)
+                        if len(n_path) != 0:
+                            n_dist = self.distance_fn(n.config, n_path[-1])
+                            if n_dist < eps:
+                                n.rewire(new, d, list(n_path[:-1]), iteration=iteration)
+
+        self.print_info(iteration, t.elapsed, success, goal_n)
 
         if goal_n is None:
             return None
@@ -256,10 +257,10 @@ class RRTStar(RRTBase):
 
         return purge_duplicates_from_traj(path, eps=1e-6)
 
-    def print_info(self, iteration, start_time_iter, start_time, success, goal_n):
-        print(f'Iteration: {iteration:5}/{self.n_iters:5} | Nodes: {self.nodes_torch.shape[0]} '
-              f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
-              f'| Time: {elapsed_time(start_time):.3f} '
+    def print_info(self, iteration, elapsed_time, success, goal_n):
+        print(f'Iteration: {iteration:5}/{self.n_iters:5} '
+              f'| Time: {elapsed_time:.3f} s'
+              f'| Nodes: {self.nodes_torch.shape[0]} '
               f'| Success: {success} | Cost: {goal_n.cost if success else torch.inf:.12f}')
 
     def render(self, ax, **kwargs):

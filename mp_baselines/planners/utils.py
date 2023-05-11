@@ -8,9 +8,6 @@ from scipy import interpolate
 from torch_robotics.torch_utils.torch_utils import to_numpy, to_torch
 
 
-def elapsed_time(start_time):
-    return time.time() - start_time
-
 def extend_path(distance_fn, q1, q2, max_step=0.03, max_dist=0.1, tensor_args=None):
     # max_dist must be <= radius of RRT star!
     dist = distance_fn(q1, q2)

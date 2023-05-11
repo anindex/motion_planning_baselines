@@ -1,15 +1,9 @@
 import abc
-import math
-import sys
-from copy import copy
-from operator import itemgetter
 
-import numpy as np
 import torch
-import time
-import matplotlib.pyplot as plt
+
 from mp_baselines.planners.base import MPPlanner
-from mp_baselines.planners.utils import elapsed_time, safe_path, purge_duplicates_from_traj, extend_path
+from mp_baselines.planners.utils import extend_path
 
 
 class RRTBase(MPPlanner):
@@ -17,7 +11,7 @@ class RRTBase(MPPlanner):
     def __init__(
             self,
             name,
-            env,
+            task,
             n_iters: int,
             start_state: torch.Tensor,
             goal_state: torch.Tensor = None,
@@ -30,7 +24,7 @@ class RRTBase(MPPlanner):
             **kwargs
     ):
         super(RRTBase, self).__init__(name=name, tensor_args=tensor_args)
-        self.env = env
+        self.task = task
         self.n_iters = n_iters
 
         # RRT params
@@ -58,7 +52,7 @@ class RRTBase(MPPlanner):
             self.pre_samples = uniform_samples
 
     def create_uniform_samples(self, n_samples, max_samples=1000, **observation):
-        return self.env.random_coll_free_q(n_samples, max_samples)
+        return self.task.random_coll_free_q(n_samples, max_samples)
 
     def remove_last_pre_sample(self):
         # https://discuss.pytorch.org/t/how-to-remove-an-element-from-a-1-d-tensor-by-index/23109/3
@@ -106,16 +100,16 @@ class RRTBase(MPPlanner):
         return qs
 
     def collision_fn(self, qs, **observation):
-        return self.env._compute_collision(qs).squeeze()
+        return self.task.compute_collision(qs).squeeze()
 
     def sample_fn(self, without_collision=True, **observation):
         if without_collision:
             return self.random_collision_free(**observation)
         else:
-            return self.env.random_q()
+            return self.task.random_q()
 
     def distance_fn(self, q1, q2):
-        return self.env.distance_q(q1, q2)
+        return self.task.distance_q(q1, q2)
 
     def extend_fn(self, q1, q2, max_step=0.03, max_dist=0.1):
         return extend_path(self.distance_fn, q1, q2, max_step, max_dist, tensor_args=self.tensor_args)

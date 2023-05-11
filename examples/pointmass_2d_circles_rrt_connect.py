@@ -1,92 +1,114 @@
-import time
-
 import matplotlib.pyplot as plt
 import torch
 
 from experiment_launcher.utils import fix_random_seed
 from mp_baselines.planners.rrt_connect import RRTConnect
-from mp_baselines.planners.utils import elapsed_time
+from mp_baselines.planners.rrt_star import RRTStar
+from torch_robotics.environment.env_base import EnvBase
 from torch_robotics.environment.utils import create_grid_spheres
-from torch_robotics.torch_utils.torch_utils import to_numpy, get_torch_device
+from torch_robotics.robot.point_mass_robot import PointMassRobot
+from torch_robotics.task.task_base import PlanningTask
+from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_utils import get_torch_device
+from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
+
+from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
+allow_ops_in_compiled_graph()
+
 
 if __name__ == "__main__":
-    seed = 5
+    planner = 'rrt-connect'
+    # planner = 'rrt-star'
+
+    seed = 100
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
-    # -------------------------------- Environment ---------------------------------
-    ws_limits = torch.tensor([[-1, 1], [-1, 1]], **tensor_args)
+    # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
+    # List of objects composed of primitive shapes
+    obj_list = create_grid_spheres(rows=7, cols=7, heights=0, radius=0.075, tensor_args=tensor_args)
 
-    # Obstacles
-    cell_size = 0.01
-    map_dim = [2, 2]
-
-    rows = 7
-    cols = 7
-    radius = 0.075
-    obj_list = create_grid_spheres(rows=rows, cols=cols, heights=0, radius=radius, tensor_args=tensor_args)
-
-    env_params = dict(
-        map_dim=map_dim,
+    env = EnvBase(
+        name='GridCircles2D',
+        limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # environment limits
         obj_list=obj_list,
-        cell_size=cell_size,
-        map_type='direct',
-        tensor_args=tensor_args,
-    )
-    obst_map = build_obstacle_map(**env_params)
-
-    env = ObstacleMapEnv(
-        name='GridCircles',
-        q_n_dofs=2,
-        q_min=ws_limits[:, 0],
-        q_max=ws_limits[:, 1],
-        obstacle_map=obst_map,
         tensor_args=tensor_args
     )
 
-    robot = PointMassRobot()
+    robot = PointMassRobot(
+        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
+        tensor_args=tensor_args
+    )
 
-    task = Task(env=env, robot=robot)
-
+    task = PlanningTask(
+        env=env,
+        robot=robot,
+        ws_limits=torch.tensor([[-0.95, -0.95], [0.95, 0.95]], **tensor_args),  # workspace limits
+        # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
+        use_occupancy_map=False,
+        cell_size=0.01,
+        tensor_args=tensor_args
+    )
 
     # -------------------------------- Planner ---------------------------------
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+
     n_iters = 30000
     step_size = 0.01
     n_radius = 0.1
     max_time = 60.
 
-    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+    if planner == 'rrt-connect':
+        rrt_connect_params = dict(
+            task=task,
+            n_iters=n_iters,
+            start_state=start_state,
+            step_size=step_size,
+            n_radius=n_radius,
+            max_time=max_time,
+            goal_state=goal_state,
+            tensor_args=tensor_args,
+        )
+        planner = RRTConnect(**rrt_connect_params)
+    elif planner == 'rrt-star':
+        max_best_cost_iters = 1000
+        cost_eps = 1e-2
+        n_radius = 0.1
+        n_knn = 10
+        goal_prob = 0.1
 
-    rrt_params = dict(
-        env=env,
-        n_iters=n_iters,
-        start_state=start_state,
-        step_size=step_size,
-        n_radius=n_radius,
-        max_time=max_time,
-        goal_state=goal_state,
-        tensor_args=tensor_args,
-    )
-    planner = RRTConnect(**rrt_params)
+        rrt_star_params = dict(
+            task=task,
+            n_iters=n_iters,
+            max_best_cost_iters=max_best_cost_iters,
+            cost_eps=cost_eps,
+            start_state=start_state,
+            step_size=step_size,
+            n_radius=n_radius,
+            n_knn=n_knn,
+            max_time=max_time,
+            goal_prob=goal_prob,
+            goal_state=goal_state,
+            tensor_args=tensor_args,
+        )
+
+        planner = RRTStar(**rrt_star_params)
+    else:
+        raise NotImplementedError
 
     # Optimize
-    start = time.time()
-    traj = planner.optimize(debug=True, informed=True, refill_samples_buffer=True)
-    print(f"{elapsed_time(start)} seconds")
+    with Timer() as t:
+        traj = planner.optimize(debug=True, refill_samples_buffer=True)
+    print(f'Optimization time: {t.elapsed:.3f} sec')
 
-    # -------------------------------- Plotting ---------------------------------
-    fig, ax = plt.subplots()
-    planner.render(ax)
-    obst_map.plot(ax)
-    if traj is not None:
-        traj = to_numpy(traj)
-        ax.plot(traj[:, 0], traj[:, 1], 'b-', markersize=3)
-    ax.plot(to_numpy(start_state[0]), to_numpy(start_state[1]), 'go', markersize=7)
-    ax.plot(to_numpy(goal_state[0]), to_numpy(goal_state[1]), 'ro', markersize=7)
-    ax.set_aspect('equal')
+    # -------------------------------- Visualize ---------------------------------
+    planner_visualizer = PlanningVisualizer(
+        env=env,
+        robot=robot,
+        planner=planner
+    )
+    fig, ax = planner_visualizer.render_trajectory(traj, start_state=start_state, goal_state=goal_state)
     plt.show()
-
-

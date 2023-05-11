@@ -9,7 +9,8 @@ import time
 import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
 from mp_baselines.planners.rrt_base import RRTBase
-from mp_baselines.planners.utils import elapsed_time, safe_path, purge_duplicates_from_traj, extend_path
+from mp_baselines.planners.utils import safe_path, purge_duplicates_from_traj, extend_path
+from torch_robotics.torch_utils.torch_timer import Timer
 
 
 class TreeNode:
@@ -57,7 +58,7 @@ class RRTConnect(RRTBase):
 
     def __init__(
             self,
-            env,
+            task,
             n_iters: int,
             start_state: torch.Tensor,
             step_size: float = 0.1,
@@ -71,7 +72,7 @@ class RRTConnect(RRTBase):
     ):
         super(RRTConnect, self).__init__(
             'RRTConnect',
-            env,
+            task,
             n_iters,
             start_state,
             goal_state,
@@ -110,91 +111,88 @@ class RRTConnect(RRTBase):
 
         path = None
 
-        start_time = time.time()
-        start_time_iter = time.time()
-        while (elapsed_time(start_time) < self.max_time) and (iteration < self.n_iters):
+        with Timer() as t:
+            while (t.elapsed < self.max_time) and (iteration < self.n_iters):
+                iteration += 1
 
-            iteration += 1
+                if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
+                    if debug:
+                        self.print_info(iteration, t.elapsed, success)
 
-            if iteration % print_freq == 0 or iteration % (self.n_iters - 1) == 0:
-                if debug:
-                    self.print_info(iteration, start_time_iter, start_time, success)
+                # Swap trees
+                # TODO - implement swap
+                # swap = random_swap(self.nodes_tree_1, self.nodes_tree_2)
+                swap = True
+                if swap:
+                    self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
+                    self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
 
-            # Swap trees
-            # TODO - implement swap
-            # swap = random_swap(self.nodes_tree_1, self.nodes_tree_2)
-            swap = True
-            if swap:
-                self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
-                self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
+                # Sample new node
+                target = self.sample_fn(**observation)
 
-            # Sample new node
-            target = self.sample_fn(**observation)
+                ###############################################################
+                # nearest node in Tree1 to the target node
+                nearest = self.get_nearest_node(self.nodes_tree_1, self.nodes_tree_1_torch, target)
 
-            ###############################################################
-            # nearest node in Tree1 to the target node
-            nearest = self.get_nearest_node(self.nodes_tree_1, self.nodes_tree_1_torch, target)
+                # create a safe path from the target node to the nearest node
+                extended = self.extend_fn(nearest.config, target, max_step=self.step_size, max_dist=self.n_radius)
+                path = safe_path(extended, self.collision_fn)
 
-            # create a safe path from the target node to the nearest node
-            extended = self.extend_fn(nearest.config, target, max_step=self.step_size, max_dist=self.n_radius)
-            path = safe_path(extended, self.collision_fn)
+                # add last node in path to Tree1
+                if len(path) == 0:
+                    continue
 
-            # add last node in path to Tree1
-            if len(path) == 0:
-                continue
+                n1 = TreeNode(path[-1], parent=nearest)
+                self.nodes_tree_1.append(n1)
+                self.nodes_tree_1_torch = torch.vstack((self.nodes_tree_1_torch, n1.config))
 
-            n1 = TreeNode(path[-1], parent=nearest)
-            self.nodes_tree_1.append(n1)
-            self.nodes_tree_1_torch = torch.vstack((self.nodes_tree_1_torch, n1.config))
+                if torch.allclose(path[-1], target):
+                    self.remove_last_pre_sample()
 
-            if torch.allclose(path[-1], target):
-                self.remove_last_pre_sample()
+                ###############################################################
+                # add nearest node in Tree2 to the one recently added to Tree1
+                nearest = self.get_nearest_node(self.nodes_tree_2, self.nodes_tree_2_torch, n1.config)
 
-            ###############################################################
-            # add nearest node in Tree2 to the one recently added to Tree1
-            nearest = self.get_nearest_node(self.nodes_tree_2, self.nodes_tree_2_torch, n1.config)
+                # create a safe path from the target node to the nearest node
+                extended = self.extend_fn(nearest.config, n1.config, max_step=self.step_size, max_dist=self.n_radius)
+                path = safe_path(extended, self.collision_fn)
 
-            # create a safe path from the target node to the nearest node
-            extended = self.extend_fn(nearest.config, n1.config, max_step=self.step_size, max_dist=self.n_radius)
-            path = safe_path(extended, self.collision_fn)
+                # add last node in path to TREE2
+                if len(path) == 0:
+                    continue
 
-            # add last node in path to TREE2
-            if len(path) == 0:
-                continue
-
-            n2 = TreeNode(path[-1], parent=nearest)
-            self.nodes_tree_2.append(n2)
-            self.nodes_tree_2_torch = torch.vstack((self.nodes_tree_2_torch, n2.config))
-
-            if swap:
-                self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
-                self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
-
-            # if the last node in path is the same as the proposed node, the two trees are connected and terminate
-            if torch.allclose(n1.config, n2.config):
-                success = True
+                n2 = TreeNode(path[-1], parent=nearest)
+                self.nodes_tree_2.append(n2)
+                self.nodes_tree_2_torch = torch.vstack((self.nodes_tree_2_torch, n2.config))
 
                 if swap:
-                    n1, n2 = n2, n1
+                    self.nodes_tree_1, self.nodes_tree_2 = self.nodes_tree_2, self.nodes_tree_1
+                    self.nodes_tree_1_torch, self.nodes_tree_2_torch = self.nodes_tree_2_torch, self.nodes_tree_1_torch
 
-                path1, path2 = n1.retrace(), n2.retrace()
+                # if the last node in path is the same as the proposed node, the two trees are connected and terminate
+                if torch.allclose(n1.config, n2.config):
+                    success = True
 
-                # if swap:
-                #     path1, path2 = path2, path1
+                    if swap:
+                        n1, n2 = n2, n1
 
-                path = configs(path1[:-1] + path2[::-1])
-                break
+                    path1, path2 = n1.retrace(), n2.retrace()
+
+                    # if swap:
+                    #     path1, path2 = path2, path1
+
+                    path = configs(path1[:-1] + path2[::-1])
+                    break
 
         if path is not None:
-            self.print_info(iteration, start_time_iter, start_time, success)
+            self.print_info(iteration, t.elapsed, success)
             return purge_duplicates_from_traj(path, eps=1e-6)
         return path
 
-    def print_info(self, iteration, start_time_iter, start_time, success):
+    def print_info(self, iteration, elapsed_time, success):
         print(f'Iteration: {iteration:5}/{self.n_iters:5} '
+              f'| Time: {elapsed_time:.3f} s'
               f'| Nodes: {len(self.nodes_tree_1) + len(self.nodes_tree_2)} '
-              f'| Iter Time: {elapsed_time(start_time_iter):.5f}'
-              f'| Time: {elapsed_time(start_time):.3f} '
               f'| Success: {success}'
               )
 
