@@ -1,21 +1,20 @@
-# motion_planning_baselines
-Implement various MP methods.
+# Motion Planning Baselines in PyTorch
+Implement various Motion Planning methods.
+
+## Dependencies
+
+- torch_robotics - https://github.com/anindex/torch_robotics
+- stoch_gpmp - https://github.com/anindex/stoch_gpmp
 
 ## Installation
 
-```azure
+```bash
 pip install -e .
-```
-
-```azure
-cd ../stoch_gpmp       && pip install -e . && 
-cd ../torch_robotics   && pip install -e . && 
-cd ..
 ```
 
 ## Examples
 
-```azure
+```bash
 python examples/planar_stomp.py
 python examples/planar_chomp.py
 python examples/planar_rrtstar.py

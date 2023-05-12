@@ -2,18 +2,19 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
-from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
-from torch_robotics.environment.env_planar2link import EnvPlanar2Link
-from torch_robotics.robot.planar2link_robot import Planar2LinkRobot
+from torch_robotics.environment.env_base import EnvBase
+from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
+from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import Timer
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
+from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 allow_ops_in_compiled_graph()
 
 
@@ -28,18 +29,17 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvPlanar2Link(
-        tensor_args=tensor_args
-    )
+    env = EnvMazeBoxes3D(tensor_args=tensor_args)
 
-    robot = Planar2LinkRobot(
+    robot = PointMassRobot(
+        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1., -1.], [1., 1.]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
         use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         # use_occupancy_map=False,
         cell_size=0.01,
@@ -47,12 +47,12 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-torch.pi/2, 0], **tensor_args)
-    goal_state = torch.tensor([torch.pi-0.05, 0], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
 
     n_iters = 30000
-    step_size = torch.pi/50
-    n_radius = torch.pi/4
+    step_size = 0.05
+    n_radius = 0.3
     max_time = 60.
 
     if planner == 'rrt-connect':
@@ -70,8 +70,8 @@ if __name__ == "__main__":
     elif planner == 'rrt-star':
         max_best_cost_iters = 1000
         cost_eps = 1e-2
-        n_knn = 5
-        goal_prob = 0.1
+        n_knn = 10
+        goal_prob = 0.2
 
         rrt_star_params = dict(
             task=task,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         planner=planner
     )
     fig, ax = planner_visualizer.render_trajectory(
-        traj, start_state=start_state, goal_state=goal_state,
+        traj, start_state=start_state, goal_state=goal_state, render_planner=True,
         animate=True,
         video_filepath=os.path.basename(__file__).replace('.py', '.mp4')
     )

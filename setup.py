@@ -13,8 +13,8 @@ with open(path.join(here, 'requirements.txt'), encoding='utf-8') as f:
 
 setup(name='mp_baselines',
       description='Motion Planning Baselines',
-      author='An T. Le',
-      author_email='an@robot-learning.de',
+      author='An T. Le, Joao Carvalho',
+      author_email='an@robot-learning.de, joao@robot-learning.de',
       packages=['mp_baselines'],
       install_requires=requires_list,
 )
