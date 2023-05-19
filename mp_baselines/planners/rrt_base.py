@@ -74,10 +74,6 @@ class RRTBase(MPPlanner):
     def _run_optimization(self, opt_iters, **observation):
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def render(self, ax, **kwargs):
-        raise NotImplementedError
-
     def random_collision_free(self, **observation):
         """
         Returns: random positions in environment space not in collision

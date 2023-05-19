@@ -1,3 +1,4 @@
+import abc
 from abc import ABC, abstractmethod
 from typing import Tuple
 import torch
@@ -48,6 +49,10 @@ class MPPlanner(ABC):
 
     def __repr__(self):
         return f"{self.name}({self._kwargs})"
+
+    @abc.abstractmethod
+    def render(self, ax, **kwargs):
+        raise NotImplementedError
 
 
 class OptimizationPlanner(MPPlanner):
@@ -203,9 +208,15 @@ class OptimizationPlanner(MPPlanner):
             trajs = torch.cat((trajs, vels), dim=1)
         return trajs
 
+    def get_traj(self):
+        return self._get_traj()
+
     def _get_costs(self, state_trajectories, **observation):
         if self.cost is None:
             costs = torch.zeros(self.num_particles, )
         else:
             costs = self.cost(state_trajectories, **observation)
         return costs
+
+    def render(self, ax, **kwargs):
+        raise NotImplementedError

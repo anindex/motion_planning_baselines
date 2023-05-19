@@ -99,7 +99,8 @@ class RRTStar(RRTBase):
             goal_state: torch.Tensor = None,
             tensor_args: dict = None,
             n_pre_samples=10000,
-            pre_samples=None
+            pre_samples=None,
+            informed=False
     ):
         super(RRTStar, self).__init__(
             'RRTStar',
@@ -124,6 +125,8 @@ class RRTStar(RRTBase):
         self.n_knn = n_knn
         self.goal_prob = goal_prob
 
+        self.informed = informed  # Informed RRT
+
         self.nodes = None
         self.nodes_torch = None
 
@@ -133,7 +136,7 @@ class RRTStar(RRTBase):
         """
         optim_vis = observation.get('optim_vis', False)
         initial_nodes = observation.get('initial_nodes', None)
-        informed = observation.get('informed', False)
+        informed = observation.get('informed', self.informed)
         eps = observation.get('eps', 1e-6)
         print_freq = observation.get('print_freq', 150)
         debug = observation.get('debug', False)
@@ -265,3 +268,9 @@ class RRTStar(RRTBase):
 
     def render(self, ax, **kwargs):
         self.nodes[0].render(ax)
+
+
+class InfRRTStar(RRTStar):
+    # Informed RRT Star
+    def __init__(self, *args, **kwargs):
+        super(InfRRTStar, self).__init__(*args, informed=True, **kwargs)

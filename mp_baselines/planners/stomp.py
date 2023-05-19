@@ -1,3 +1,4 @@
+import einops
 import torch
 import torch.distributions as dist
 
@@ -141,7 +142,6 @@ class STOMP(OptimizationPlanner):
         """
         Optimize for best trajectory at current state
         """
-
         self._run_optimization(opt_iters, **observation)
         # get best trajectory
         curr_traj = self._get_traj()
@@ -181,7 +181,8 @@ class STOMP(OptimizationPlanner):
 
         # Evaluate quadratic costs
         costs = self._get_costs(self.state_particles.flatten(0, 1), **observation)
-        costs = costs.reshape(self.num_particles, self.num_samples)
+        costs = costs.sum(-1)  # sum over the trajectory
+        costs = einops.rearrange(costs, "(p s) -> p s", p=self.num_particles, s=self.num_samples)
 
         ## Optional : Add cost term from importance sampling ratio
         # for i in range(self.control_dim):

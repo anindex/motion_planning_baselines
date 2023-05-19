@@ -1,12 +1,13 @@
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import torch
 
 from mp_baselines.planners.rrt_connect import RRTConnect
-from mp_baselines.planners.rrt_star import RRTStar
+from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
 from torch_robotics.environment.env_base import EnvBase
-from torch_robotics.environment.utils import create_grid_spheres
+from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -29,38 +30,30 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    # List of objects composed of primitive shapes
-    obj_list = create_grid_spheres(rows=7, cols=7, heights=0, radius=0.1, tensor_args=tensor_args)
-
-    env = EnvBase(
-        name='GridCircles2D',
-        limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # environment limits
-        obj_list=obj_list,
-        tensor_args=tensor_args
-    )
+    env = EnvMazeBoxes3D(tensor_args=tensor_args)
 
     robot = PointMassRobot(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
+        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
-        use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
-        # use_occupancy_map=False,
+        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
+        use_occupancy_map=False,
         cell_size=0.01,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
 
     n_iters = 30000
-    step_size = 0.01
-    n_radius = 0.1
+    step_size = 0.05
+    n_radius = 0.3
     max_time = 60.
 
     if planner == 'rrt-connect':
@@ -79,7 +72,7 @@ if __name__ == "__main__":
         max_best_cost_iters = 1000
         cost_eps = 1e-2
         n_knn = 10
-        goal_prob = 0.1
+        goal_prob = 0.2
 
         rrt_star_params = dict(
             task=task,
@@ -96,7 +89,7 @@ if __name__ == "__main__":
             tensor_args=tensor_args,
         )
 
-        planner = RRTStar(**rrt_star_params)
+        planner = InfRRTStar(**rrt_star_params)
     else:
         raise NotImplementedError
 
@@ -111,9 +104,31 @@ if __name__ == "__main__":
         robot=robot,
         planner=planner
     )
-    fig, ax = planner_visualizer.render_trajectory(
-        traj, start_state=start_state, goal_state=goal_state, render_planner=True,
-        animate=True,
-        video_filepath=os.path.basename(__file__).replace('.py', '.mp4')
+
+    base_file_name = Path(os.path.basename(__file__)).stem
+
+    traj = traj.unsqueeze(0)  # batch dimension for interface
+
+    pos_trajs_iters = robot.get_position(traj)
+
+    planner_visualizer.plot_joint_space_state_trajectories(
+        trajs=traj,
+        pos_start_state=start_state, pos_goal_state=goal_state,
+        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
     )
+
+    planner_visualizer.render_robot_trajectories(
+        trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
+        render_planner=True,
+    )
+
+    planner_visualizer.animate_robot_trajectories(
+        trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
+        plot_trajs=True,
+        video_filepath=f'{base_file_name}-robot-traj.mp4',
+        # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
+        n_frames=pos_trajs_iters.shape[1],
+        anim_time=5
+    )
+
     plt.show()

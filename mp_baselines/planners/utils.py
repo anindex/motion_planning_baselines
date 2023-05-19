@@ -66,7 +66,7 @@ def interpolate_traj_via_points(env, trajs, num_intepolation_traj=10):
         alpha = alpha.view((1,) * len(traj_dim[:-1]) + (-1, 1))
         interpolated_trajs = trajs[..., 0:traj_dim[-2] - 1, None, :] * alpha + \
                              trajs[..., 1:traj_dim[-2], None, :] * (1 - alpha)
-        interpolated_trajs = interpolated_trajs.view(traj_dim[:-2] + (-1, env.q_n_dofs))
+        interpolated_trajs = interpolated_trajs.view(traj_dim[:-2] + (-1, env.q_dim))
     else:
         interpolated_trajs = trajs
     return interpolated_trajs
@@ -140,7 +140,7 @@ def compute_path_length(trajs, env):
 
 def compute_smoothness(trajs, env):
     assert trajs.ndim == 3
-    if trajs.shape[-1] == env.q_n_dofs:
+    if trajs.shape[-1] == env.q_dim:
         # if there is no velocity information in the trajectory, compute it via finite difference
         trajs_pos = env.get_q_position(trajs)
         trajs_vel = torch.diff(trajs_pos, dim=-2)

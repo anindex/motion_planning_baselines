@@ -120,7 +120,7 @@ class RRTConnect(RRTBase):
                         self.print_info(iteration, t.elapsed, success)
 
                 # Swap trees
-                # TODO - implement swap
+                # TODO - implement smart random swap
                 # swap = random_swap(self.nodes_tree_1, self.nodes_tree_2)
                 swap = True
                 if swap:

@@ -1,9 +1,12 @@
 import torch
 
 from mp_baselines.planners.base import OptimizationPlanner
+from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_utils import batched_weighted_dot_prod
 
 
 class CHOMP(OptimizationPlanner):
+    # https://www.ri.cmu.edu/pub_files/2009/5/icra09-chomp.pdf
 
     def __init__(
             self,
@@ -84,7 +87,6 @@ class CHOMP(OptimizationPlanner):
             dim=0,
         )
         A_mat[-1, -1] = -1.
-        # A_mat[-1, -1] = 1.
         A_mat = A_mat * 1. / self.dt ** 2
         R_mat = A_mat.t() @ A_mat
 
@@ -99,6 +101,9 @@ class CHOMP(OptimizationPlanner):
             self._particle_means = initial_particle_means.clone()
         else:
             self._particle_means = self.get_random_trajs()
+
+    def __call__(self, *args, **kwargs):
+        return self.optimize(*args, **kwargs)
 
     def optimize(
             self,
@@ -116,7 +121,7 @@ class CHOMP(OptimizationPlanner):
 
     def _run_optimization(self, opt_iters, **observation):
         """
-            Run optimization iterations.
+        Run optimization iterations.
         """
         optim_vis = observation.get('optim_vis', False)
         if opt_iters is None:
@@ -127,7 +132,8 @@ class CHOMP(OptimizationPlanner):
 
             # Get grad
             costs.sum().backward(retain_graph=True)
-            self._particle_means.grad.data.clamp_(-self.grad_clip, self.grad_clip)  # For stabilizing and preventing too high gradients
+            # For stabilizing and preventing high gradients
+            self._particle_means.grad.data.clamp_(-self.grad_clip, self.grad_clip)
             # zeroing grad at start and goal
             self._particle_means.grad.data[..., 0, :] = 0.
             self._particle_means.grad.data[..., -1, :] = 0.
@@ -141,17 +147,18 @@ class CHOMP(OptimizationPlanner):
 
     def _eval(self, x, **observation):
         """
-            Evaluate costs.
+        Evaluate costs.
         """
         if x.ndim == 2:
             x = x.unsqueeze(0)
 
-        # Evaluate quadratic costs
+        # Evaluate (collision, ...) costs
         costs = self._get_costs(x, **observation)
 
         # Add smoothness term
-        R_mat = self.Sigma_inv.clone()
-        smooth_cost = x.transpose(1, 2) @ R_mat.unsqueeze(0) @ x
-        costs += smooth_cost.diagonal(dim1=1, dim2=2).sum()
+        R_mat = self.Sigma_inv
+        smooth_cost = batched_weighted_dot_prod(x, R_mat, x).sum()
+
+        costs += smooth_cost
 
         return costs
