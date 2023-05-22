@@ -21,8 +21,8 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    # planner = 'rrt-connect'
-    planner = 'rrt-star'
+    planner = 'rrt-connect'
+    # planner = 'rrt-star'
 
     seed = 0
     fix_random_seed(seed)
@@ -103,8 +103,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
-        env=env,
-        robot=robot,
+        task=task,
         planner=planner
     )
 

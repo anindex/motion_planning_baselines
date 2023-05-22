@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import torch
@@ -51,13 +52,13 @@ if __name__ == "__main__":
     cost_composite = CostComposite(robot.q_dim, traj_len, cost_func_list)
 
     num_particles_per_goal = 3
-    opt_iters = 100
+    opt_iters = 50
 
     planner_params = dict(
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
-        opt_iters=opt_iters,  # Keep this 1 for visualization
+        opt_iters=1,  # Keep this 1 for visualization
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
@@ -73,25 +74,57 @@ if __name__ == "__main__":
     planner = CHOMP(**planner_params)
 
     # Optimize
+    trajs_0 = planner.get_traj()
+    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
+    trajs_iters[0] = trajs_0
     with Timer() as t:
-        traj_batch = planner.optimize(debug=True)
+        for i in range(opt_iters):
+            trajs = planner.optimize(debug=True)
+            trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
     # -------------------------------- Visualize ---------------------------------
-    traj_batch = robot.get_position(traj_batch)
     planner_visualizer = PlanningVisualizer(
-        env=env,
-        robot=robot,
+        task=task,
         planner=planner
     )
-    fig, ax = planner_visualizer.render_trajectory(
-        traj=traj_batch[0], start_state=start_state, goal_state=goal_state, render_planner=False,
-        animate=True,
-        video_filepath=os.path.basename(__file__).replace('.py', '.mp4')
+
+    print(f'----------------STATISTICS----------------')
+    print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'success {task.compute_success_free_trajs(trajs_iters[-1])}')
+
+    base_file_name = Path(os.path.basename(__file__)).stem
+
+    pos_trajs_iters = robot.get_position(trajs_iters)
+
+    planner_visualizer.plot_joint_space_state_trajectories(
+        trajs=trajs_iters[-1],
+        pos_start_state=start_state, pos_goal_state=goal_state,
+        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
     )
-    for traj in traj_batch[1:]:
-        fig, ax = planner_visualizer.render_trajectory(
-            fig=fig, ax=ax,
-            traj=traj,
-        )
+
+    planner_visualizer.animate_opt_iters_joint_space_state(
+        trajs=trajs_iters,
+        pos_start_state=start_state, pos_goal_state=goal_state,
+        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
+        video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
+        n_frames=max((2, opt_iters // 10)),
+        anim_time=5
+    )
+
+    planner_visualizer.render_robot_trajectories(
+        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+        render_planner=False,
+    )
+
+    planner_visualizer.animate_robot_trajectories(
+        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+        plot_trajs=False,
+        video_filepath=f'{base_file_name}-robot-traj.mp4',
+        # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
+        n_frames=pos_trajs_iters[-1].shape[1],
+        anim_time=traj_len*dt
+    )
+
     plt.show()

@@ -97,8 +97,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
-        env=env,
-        robot=robot,
+        task=task,
         planner=planner
     )
 
@@ -107,6 +106,11 @@ if __name__ == "__main__":
     traj = traj.unsqueeze(0)  # batch dimension for interface
 
     pos_trajs_iters = robot.get_position(traj)
+
+    print(f'----------------STATISTICS----------------')
+    print(f'percentage free trajs: {task.compute_fraction_free_trajs(pos_trajs_iters) * 100:.2f}')
+    print(f'percentage collision intensity {task.compute_collision_intensity_trajs(pos_trajs_iters) * 100:.2f}')
+    print(f'success {task.compute_success_free_trajs(pos_trajs_iters)}')
 
     planner_visualizer.plot_joint_space_state_trajectories(
         trajs=traj,
@@ -121,7 +125,6 @@ if __name__ == "__main__":
 
     planner_visualizer.animate_robot_trajectories(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
-        plot_trajs=False,
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters.shape[1],

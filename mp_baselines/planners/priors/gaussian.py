@@ -229,7 +229,7 @@ class ControlTrajectoryPrior(ABC):
     ):
         self.rollout_steps = rollout_steps
         self.ctrl_dim = ctrl_dim
-        self.list_ctrl_dists = []
+        self.list_ctrl_dists = []  # TODO - make this a tensor, or list of tensors of same distributions...
         if tensor_args is None:
             tensor_args = {'device': 'cpu', 'dtype': torch.float32}
         self.tensor_args = tensor_args
@@ -269,6 +269,7 @@ class ControlTrajectoryPrior(ABC):
         return log_probs
 
     def update_means(self, means):
+        # TODO - remove this for loop after making self.list_ctrl_dists a tensor
         for i in range(self.ctrl_dim):
             self.list_ctrl_dists[i].loc = means[..., i].detach().clone()
 
@@ -289,6 +290,7 @@ class ControlTrajectoryPrior(ABC):
             self.ctrl_dim,
             **self.tensor_args
         )
+        # TODO - remove this for loop
         for i in range(self.ctrl_dim):
             U_s[:, :, i] = self.list_ctrl_dists[i].sample(
                 (num_samples,)

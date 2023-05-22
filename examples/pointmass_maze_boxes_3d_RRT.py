@@ -100,8 +100,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
-        env=env,
-        robot=robot,
+        task=task,
         planner=planner
     )
 

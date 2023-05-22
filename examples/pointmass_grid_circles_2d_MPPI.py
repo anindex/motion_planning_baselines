@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.stomp import STOMP
+from mp_baselines.planners.chomp import CHOMP
+from mp_baselines.planners.dynamics.point import PointParticleDynamics
+from mp_baselines.planners.mppi import MPPI
 from stoch_gpmp.costs.cost_functions import CostComposite
 from torch_robotics.environment.env_circles_2d import GridCircles2D
-from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -27,66 +28,92 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvMazeBoxes3D(tensor_args=tensor_args)
+    env = GridCircles2D(
+        tensor_args=tensor_args
+    )
 
     robot = PointMassRobot(
-        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
+        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
 
     multi_goal_states = goal_state.unsqueeze(0)
 
     traj_len = 64
     dt = 0.02
 
+    opt_iters = 20
+
+    mppi_params = dict(
+        num_ctrl_samples=32,
+        rollout_steps=traj_len,
+        control_std=[0.15, 0.15],
+        temp=1.,
+        opt_iters=1,
+        step_size=1.,
+        cov_prior_type='const_ctrl',
+        tensor_args=tensor_args,
+    )
+
+    system_params = dict(
+        rollout_steps=mppi_params['rollout_steps'],
+        control_dim=robot.q_dim,
+        state_dim=robot.q_dim,
+        dt=dt,
+        discount=1.,
+        goal_state=goal_state,
+        ctrl_min=[-100, -100],
+        ctrl_max=[100, 100],
+        verbose=False,
+        c_weights={
+            'pos': 1.,
+            'vel': 1.,
+            'ctrl': 1.,
+            'pos_T': 1000.,
+            'vel_T': 0.,
+        },
+        tensor_args=tensor_args,
+    )
+    system = PointParticleDynamics(**system_params)
+    planner = MPPI(system, **mppi_params)
+
     # Construct cost function
     cost_func_list = [task.compute_collision_cost]
     cost_composite = CostComposite(robot.q_dim, traj_len, cost_func_list)
 
-    num_particles_per_goal = 4
-    opt_iters = 100
-
-    planner_params = dict(
-        n_dof=robot.q_dim,
-        traj_len=traj_len,
-        num_particles_per_goal=num_particles_per_goal,
-        opt_iters=1,  # Keep this 1 for visualization
-        num_samples=30,
-        dt=dt,
-        start_state=start_state,
-        cost=cost_composite,
-        temperature=1.,
-        step_size=0.1,
-        sigma_spectral=0.1,
-        multi_goal_states=multi_goal_states,
-        sigma_start_init=0.001,
-        sigma_goal_init=0.001,
-        sigma_gp_init=5.,
-        pos_only=False,
-        tensor_args=tensor_args,
-    )
-    planner = STOMP(**planner_params)
-
     # Optimize
-    trajs_0 = planner.get_traj()
-    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape))
-    trajs_iters[0] = trajs_0
+    observation = {
+        'state': start_state,
+        'goal_state': goal_state,
+        'cost': cost_composite,
+    }
+
+    vel_iters = torch.empty((opt_iters, 1, traj_len, planner.control_dim), **tensor_args)
     with Timer() as t:
         for i in range(opt_iters):
-            trajs = planner.optimize(debug=True)
-            trajs_iters[i+1] = trajs
+            planner.optimize(**observation)
+            vel_iters[i, 0] = planner.get_mean_controls()
     print(f'Optimization time: {t.elapsed:.3f} sec')
+
+    # Reconstruct positions
+    pos_iters = torch.empty((opt_iters, 1, traj_len, planner.state_dim), **tensor_args)
+    for i in range(opt_iters):
+        # Roll-out dynamics to get positions
+        pos_trajs = planner.get_state_trajectories_rollout(controls=vel_iters[i, 0].unsqueeze(0), **observation).squeeze()
+        pos_iters[i, 0] = pos_trajs
+
+    trajs_iters = torch.cat((pos_iters, vel_iters), dim=-1)
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
