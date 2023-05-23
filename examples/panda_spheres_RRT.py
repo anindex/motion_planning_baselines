@@ -22,7 +22,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 5
+    seed = 10
     fix_random_seed(seed)
 
     device = get_torch_device()
