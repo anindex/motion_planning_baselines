@@ -181,7 +181,6 @@ class STOMP(OptimizationPlanner):
 
         # Evaluate quadratic costs
         costs = self._get_costs(self.state_particles.flatten(0, 1), **observation)
-        costs = costs.sum(-1)  # sum over the trajectory
         costs = einops.rearrange(costs, "(p s) -> p s", p=self.num_particles, s=self.num_samples)
 
         ## Optional : Add cost term from importance sampling ratio

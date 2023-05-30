@@ -70,7 +70,7 @@ class OptimizationPlanner(MPPlanner):
                 sigma_start_init: float = 0.001,
                 sigma_goal_init: float = 0.001,
                 sigma_gp_init: float = 10.,
-                pos_only: bool = True,
+                pos_only: bool = False,
                 tensor_args: dict = None, **kwargs):
         super().__init__(name, tensor_args, **kwargs)
         self.n_dof = n_dof
@@ -91,6 +91,7 @@ class OptimizationPlanner(MPPlanner):
         self.num_particles = self.num_goals * self.num_particles_per_goal
         self.cost = cost
         self.initial_particle_means = initial_particle_means
+        self._particle_means = None
         if self.pos_only:
             self.d_state_opt = self.n_dof
             self.start_state = self.start_state
@@ -198,7 +199,7 @@ class OptimizationPlanner(MPPlanner):
         """
         trajs = self._particle_means.clone()
         if self.pos_only:
-            # Linear velocity by finite differencing
+            # Linear velocity by forward finite differencing
             vels = (trajs[..., :-1, :] - trajs[..., 1:, :]) / self.dt
             # Pad end with zero-vel for planning
             vels = torch.cat(

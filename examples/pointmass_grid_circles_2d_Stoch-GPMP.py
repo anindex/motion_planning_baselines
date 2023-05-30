@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
-from mp_baselines.planners.stomp import STOMP
-from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
+from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
+from mp_baselines.planners.stoch_gpmp import StochGPMP
+from torch_robotics.environment.env_circles_2d import GridCircles2D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -23,33 +23,62 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float32}
+    tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvMazeBoxes3D(tensor_args=tensor_args)
+    env = GridCircles2D(
+        tensor_args=tensor_args
+    )
 
     robot = PointMassRobot(
-        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
+        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    start_state_zero_vel = torch.cat((start_state, torch.zeros(start_state.nelement(), **tensor_args)))
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+    goal_state_zero_vel = torch.cat((goal_state, torch.zeros(goal_state.nelement(), **tensor_args)))
 
-    multi_goal_states = goal_state.unsqueeze(0)
+    multi_goal_states = goal_state.unsqueeze(0)  # add batch dim for interface
+    multi_goal_states_zero_vel = goal_state_zero_vel.unsqueeze(0)  # add batch dim for interface
 
     traj_len = 64
     dt = 0.02
 
+    num_particles_per_goal = 4
+    num_samples = 30
+    opt_iters = 10
+
     # Construct cost function
+    cost_sigmas = dict(
+        sigma_start=0.001,
+        sigma_gp=0.1,
+    )
+    cost_prior = CostGP(
+        robot, traj_len, start_state_zero_vel, dt,
+        cost_sigmas,
+        tensor_args=tensor_args
+    )
+
+    sigma_goal_prior = 0.001
+    cost_goal_prior = CostGoalPrior(
+        robot, traj_len,
+        multi_goal_states=multi_goal_states_zero_vel,
+        num_particles_per_goal=num_particles_per_goal,
+        num_samples=num_samples,
+        sigma_goal_prior=sigma_goal_prior,
+        tensor_args=tensor_args
+    )
+
     sigma_coll = 1e-3
     cost_collisions = []
     for collision_field in task.get_collision_fields():
@@ -62,35 +91,34 @@ if __name__ == "__main__":
             )
         )
 
-    cost_func_list = [*cost_collisions]
+    cost_func_list = [cost_prior, cost_goal_prior, *cost_collisions]
     cost_composite = CostComposite(
         robot, traj_len, cost_func_list,
         tensor_args=tensor_args
     )
 
-    num_particles_per_goal = 4
-    opt_iters = 100
-
+    # Construct planner
     planner_params = dict(
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
         opt_iters=1,  # Keep this 1 for visualization
-        num_samples=30,
+        num_samples=num_samples,
         dt=dt,
         start_state=start_state,
+        multi_goal_states=multi_goal_states,
         cost=cost_composite,
         temperature=1.,
-        step_size=0.1,
-        sigma_spectral=0.1,
-        multi_goal_states=multi_goal_states,
-        sigma_start_init=0.001,
-        sigma_goal_init=0.001,
-        sigma_gp_init=5.,
-        pos_only=False,
+        step_size=0.3,
+        sigma_start_init=1e-3,
+        sigma_goal_init=1e-3,
+        sigma_gp_init=10.,
+        sigma_start_sample=1e-3,
+        sigma_goal_sample=1e-3,
+        sigma_gp_sample=1.,
         tensor_args=tensor_args,
     )
-    planner = STOMP(**planner_params)
+    planner = StochGPMP(**planner_params)
 
     # Optimize
     trajs_0 = planner.get_traj()

@@ -25,7 +25,6 @@ class CHOMP(OptimizationPlanner):
             sigma_goal_init=0.001,
             sigma_gp_init=10.,
             pos_only: bool = True,
-            tensor_args: dict = None,
             **kwargs
     ):
         super(CHOMP, self).__init__(name='CHOMP',
@@ -42,7 +41,7 @@ class CHOMP(OptimizationPlanner):
                                     sigma_goal_init=sigma_goal_init,
                                     sigma_gp_init=sigma_gp_init,
                                     pos_only=pos_only,
-                                    tensor_args=tensor_args)
+                                    **kwargs)
 
         # CHOMP params
         self.lr = step_size
@@ -102,9 +101,6 @@ class CHOMP(OptimizationPlanner):
         else:
             self._particle_means = self.get_random_trajs()
 
-    def __call__(self, *args, **kwargs):
-        return self.optimize(*args, **kwargs)
-
     def optimize(
             self,
             opt_iters=None,
@@ -115,7 +111,7 @@ class CHOMP(OptimizationPlanner):
         """
 
         self._run_optimization(opt_iters, **observation)
-        # get best trajectory
+        # get mean trajectory
         curr_traj = self._get_traj()
         return curr_traj
 

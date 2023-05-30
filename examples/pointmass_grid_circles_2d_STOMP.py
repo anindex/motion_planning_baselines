@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
+from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
 from mp_baselines.planners.stomp import STOMP
-from stoch_gpmp.costs.cost_functions import CostComposite
 from torch_robotics.environment.env_circles_2d import GridCircles2D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
@@ -52,11 +52,26 @@ if __name__ == "__main__":
     dt = 0.02
 
     # Construct cost function
-    cost_func_list = [task.compute_collision_cost]
-    cost_composite = CostComposite(robot.q_dim, traj_len, cost_func_list)
+    sigma_coll = 1e-3
+    cost_collisions = []
+    for collision_field in task.get_collision_fields():
+        cost_collisions.append(
+            CostCollision(
+                robot, traj_len,
+                field=collision_field,
+                sigma_coll=sigma_coll,
+                tensor_args=tensor_args
+            )
+        )
+
+    cost_func_list = [*cost_collisions]
+    cost_composite = CostComposite(
+        robot, traj_len, cost_func_list,
+        tensor_args=tensor_args
+    )
 
     num_particles_per_goal = 4
-    opt_iters = 100
+    opt_iters = 20
 
     planner_params = dict(
         n_dof=robot.q_dim,
