@@ -2,9 +2,10 @@ import abc
 from abc import ABC, abstractmethod
 from typing import Tuple
 import torch
-from stoch_gpmp.costs.factors.mp_priors_multi import MultiMPPrior
-from stoch_gpmp.costs.factors.unary_factor import UnaryFactor
-from stoch_gpmp.costs.factors.gp_factor import GPFactor
+
+from mp_baselines.planners.costs.factors.gp_factor import GPFactor
+from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
+from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 
 
 class MPPlanner(ABC):
