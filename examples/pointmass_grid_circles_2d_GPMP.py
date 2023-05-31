@@ -51,10 +51,15 @@ if __name__ == "__main__":
     multi_goal_states = goal_state.unsqueeze(0)  # add batch dim for interface
     multi_goal_states_zero_vel = goal_state_zero_vel.unsqueeze(0)  # add batch dim for interface
 
+    # test multi goal states interface
+    # multi_goal_states = torch.stack((goal_state, goal_state))
+    # multi_goal_states_zero_vel = torch.stack((goal_state_zero_vel, goal_state_zero_vel))  # add batch dim for interface
+
+
     traj_len = 64
     dt = 0.02
 
-    num_particles_per_goal = 4
+    num_particles_per_goal = 5
     num_samples = 30
     opt_iters = 50
 
@@ -63,7 +68,7 @@ if __name__ == "__main__":
         sigma_start=0.001,
         sigma_gp=0.1,
     )
-    cost_prior = CostGP(
+    cost_gp_prior = CostGP(
         robot, traj_len, start_state_zero_vel, dt,
         cost_sigmas,
         tensor_args=tensor_args
@@ -90,7 +95,7 @@ if __name__ == "__main__":
             )
         )
 
-    cost_func_list = [cost_prior, cost_goal_prior, *cost_collisions]
+    cost_func_list = [cost_gp_prior, cost_goal_prior, *cost_collisions]
     cost_composite = CostComposite(
         robot, traj_len, cost_func_list,
         tensor_args=tensor_args
@@ -102,7 +107,6 @@ if __name__ == "__main__":
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
         opt_iters=1,  # Keep this 1 for visualization
-        num_samples=num_samples,
         dt=dt,
         start_state=start_state,
         multi_goal_states=multi_goal_states,

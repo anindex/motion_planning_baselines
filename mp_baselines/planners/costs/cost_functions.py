@@ -84,6 +84,7 @@ class CostComposite(Cost):
             As.append(A.detach())
             bs.append(b.detach())
             Ks.append(K.detach())
+
         A = torch.cat(As, dim=1)
         b = torch.cat(bs, dim=1)
         K = torch.zeros(batch_size, optim_dim, optim_dim, **self.tensor_args)
@@ -141,7 +142,6 @@ class CostCollision(Cost):
         if self.field is not None:
             batch_size = trajs.shape[0]
             H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
-            A = torch.zeros(batch_size, (self.traj_len - 1), self.dim * self.traj_len, **self.tensor_args)
             err_obst, H_obst = self.obst_factor.get_error(
                 trajs,
                 self.field,
@@ -149,10 +149,20 @@ class CostCollision(Cost):
                 calc_jacobian=True,
                 obstacle_spheres=observation.get('obstacle_spheres', None)
             )
-            for i in range(self.traj_len - 1):
-                A[:, i, (i + 1) * self.dim:(i + 1) * self.dim + self.n_dof] = H_obst[:, i]
+
+            A = torch.zeros(batch_size, self.traj_len - 1, self.dim * self.traj_len, **self.tensor_args)
+            A[:, :, :H_obst.shape[-1]] = H_obst
+            # shift each row by self.dim
+            idxs = torch.arange(A.shape[-1]).repeat(A.shape[-2], 1)
+            idxs = (idxs - torch.arange(self.dim, (idxs.shape[0] + 1) * self.dim, self.dim).view(-1, 1)) % idxs.shape[-1]
+            A = torch.gather(A, -1, idxs.repeat(batch_size, 1, 1))
+
+            # old code not vectorized
+            # https://github.com/anindex/stoch_gpmp/blob/main/stoch_gpmp/costs/cost_functions.py#L275
+
             b = err_obst.unsqueeze(-1)
             K = self.obst_factor.K * torch.eye((self.traj_len - 1), **self.tensor_args).repeat(batch_size, 1, 1)
+
         return A, b, K
 
 
@@ -177,7 +187,6 @@ class CostGP(Cost):
         self.set_cost_factors()
 
     def set_cost_factors(self):
-
         #========= Cost factors ===============
         self.start_prior = UnaryFactor(
             self.dim,
@@ -202,7 +211,7 @@ class CostGP(Cost):
         start_costs = err_p @ w_mat.unsqueeze(0) @ err_p.transpose(1, 2)
         start_costs = start_costs.squeeze()
 
-        # GP cost
+        # GP Trajectory cost
         err_gp = self.gp_prior.get_error(trajs, calc_jacobian=False)
         w_mat = self.gp_prior.Q_inv[0]  # repeated Q_inv
         w_mat = w_mat.reshape(1, 1, self.dim, self.dim)
@@ -228,11 +237,14 @@ class CostGP(Cost):
 
         # GP factors
         err_gp, H1_gp, H2_gp = self.gp_prior.get_error(trajs)
-        for i in range(self.traj_len - 1):
-            A[:, (i+1)*self.dim:(i+2)*self.dim, i*self.dim:(i+1)*self.dim] = H1_gp[[i]]
-            A[:, (i+1)*self.dim:(i+2)*self.dim, (i+1)*self.dim:(i+2)*self.dim] = H2_gp[[i]]
-            b[:, (i+1)*self.dim:(i+2)*self.dim] = err_gp[:, i]
-            K[:, (i+1)*self.dim:(i+2)*self.dim, (i+1)*self.dim:(i+2)*self.dim] = self.gp_prior.Q_inv[[i]]
+
+        A[:, self.dim:, :-self.dim] = torch.block_diag(*H1_gp)
+        A[:, self.dim:, self.dim:] += torch.block_diag(*H2_gp)
+        b[:, self.dim:] = einops.rearrange(err_gp, "b h d 1 -> b (h d) 1")
+        K[:, self.dim:, self.dim:] += torch.block_diag(*self.gp_prior.Q_inv)
+
+        # old code not vectorized
+        # https://github.com/anindex/stoch_gpmp/blob/main/stoch_gpmp/costs/cost_functions.py#L161
 
         return A, b, K
 
@@ -302,7 +314,6 @@ class CostGoal(Cost):
         self.set_cost_factors()
 
     def set_cost_factors(self):
-
         #========= Cost factors ===============
         self.goal_factor = FieldFactor(
             self.n_dof,
@@ -365,8 +376,8 @@ class CostGoalPrior(Cost):
         self.set_cost_factors()
 
     def set_cost_factors(self):
-
         self.multi_goal_prior = []
+        # TODO: remove this for loop
         for i in range(self.num_goals):
             self.multi_goal_prior.append(
                 UnaryFactor(
@@ -382,6 +393,7 @@ class CostGoalPrior(Cost):
         if self.multi_goal_states is not None:
             x = trajs.reshape(self.num_goals, self.num_particles_per_goal * self.num_samples, self.traj_len, self.dim)
             costs = torch.zeros(self.num_goals, self.num_particles_per_goal * self.num_samples, **self.tensor_args)
+            # TODO: remove this for loop
             for i in range(self.num_goals):
                 err_g = self.multi_goal_prior[i].get_error(x[i, :, [-1]], calc_jacobian=False)
                 w_mat = self.multi_goal_prior[i].K
@@ -406,4 +418,5 @@ class CostGoalPrior(Cost):
                 A[i*npg: (i+1)*npg, :, -self.dim:] = H_g
                 b[i*npg: (i+1)*npg] = err_g
                 K[i*npg: (i+1)*npg] = self.multi_goal_prior[i].K
+
         return A, b, K

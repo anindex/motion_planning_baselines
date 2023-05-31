@@ -63,7 +63,7 @@ if __name__ == "__main__":
         sigma_start=0.001,
         sigma_gp=0.1,
     )
-    cost_prior = CostGP(
+    cost_gp_prior = CostGP(
         robot, traj_len, start_state_zero_vel, dt,
         cost_sigmas,
         tensor_args=tensor_args
@@ -91,7 +91,7 @@ if __name__ == "__main__":
             )
         )
 
-    cost_func_list = [cost_prior, cost_goal_prior, *cost_collisions]
+    cost_func_list = [cost_gp_prior, cost_goal_prior, *cost_collisions]
     cost_composite = CostComposite(
         robot, traj_len, cost_func_list,
         tensor_args=tensor_args

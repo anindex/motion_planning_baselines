@@ -210,10 +210,10 @@ class GPMP(OptimizationPlanner):
 
         position_seq_mean = self._particle_means[..., :self.n_dof].clone()
         velocity_seq_mean = self._particle_means[..., -self.n_dof:].clone()
-        costs = self.costs.clone()
+        # costs = self.costs.clone()
 
-        self._recent_control_particles = velocity_seq_mean
         self._recent_state_trajectories = position_seq_mean
+        self._recent_control_particles = velocity_seq_mean
 
         # get mean trajectory
         curr_traj = self._get_traj()
@@ -227,6 +227,7 @@ class GPMP(OptimizationPlanner):
             delta=self.solver_params['delta'],
             trust_region=self.solver_params['trust_region'],
         )
+
         d_theta = self.get_torch_solve(
             J_t_J, g,
             method=self.solver_params['method'],
@@ -250,12 +251,12 @@ class GPMP(OptimizationPlanner):
             trust_region=False,
     ):
         I = torch.eye(self.N, self.N, **self.tensor_args)
-        A_t_K = A.transpose(1, 2) @ K
+        A_t_K = A.transpose(-2, -1) @ K
         A_t_A = A_t_K @ A
         if not trust_region:
             J_t_J = A_t_A + delta * I
         else:
-            J_t_J = A_t_A + delta * I * torch.diagonal(A_t_A, dim1=1, dim2=2).unsqueeze(-1)
+            # J_t_J = A_t_A + delta * I * torch.diagonal(A_t_A, dim1=-2, dim2=-1).unsqueeze(-1)
             # Since hessian will be averaged over particles, add diagonal matrix of the mean.
             diag_A_t_A = A_t_A.mean(0) * I
             J_t_J = A_t_A + delta * diag_A_t_A
@@ -270,11 +271,22 @@ class GPMP(OptimizationPlanner):
         if method == 'inverse':
             return torch.linalg.solve(A, b)
         elif method == 'cholesky':
-            l = torch.linalg.cholesky(A)
-            z = torch.linalg.solve_triangular(l, b, upper=False)
-            return torch.linalg.solve_triangular(l.mT, z, upper=False)
+            # method 1
+            # old implementation - recheck torch.allclose(res, torch.linalg.solve(A, b))
+            # l = torch.linalg.cholesky(A)
+            # z = torch.linalg.solve_triangular(l, b, upper=False)
+            # res = torch.linalg.solve_triangular(l.mT, z, upper=False)
+
+            # method 2
             # z = torch.triangular_solve(b, l, transpose=False, upper=False)[0]
-            # return torch.triangular_solve(z, l, transpose=True, upper=False)[0]
+            # res = torch.triangular_solve(z, l, transpose=True, upper=False)[0]
+
+            # method 3
+            l, _ = torch.linalg.cholesky_ex(A)
+            res = torch.cholesky_solve(b, l)
+
+            return res
+
         else:
             raise NotImplementedError
 
