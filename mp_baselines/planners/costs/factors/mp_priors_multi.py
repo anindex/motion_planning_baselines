@@ -10,6 +10,8 @@ __license__ = "MIT"
 import torch
 import torch.distributions as dist
 
+from torch_robotics.torch_utils.torch_utils import is_psd
+
 
 class MultiMPPrior:
 
@@ -92,8 +94,9 @@ class MultiMPPrior:
             K_g_inv,
         )
 
-        # self.Sigma_inv = Sigma_inv
-        self.Sigma_inv = Sigma_inv # + torch.eye(Sigma_inv.shape[0], **tensor_args) * 1.e-3
+        # assert is_psd(Sigma_inv), "The precision matrix must be PSD"
+        self.Sigma_inv = Sigma_inv
+        # self.Sigma_inv = Sigma_inv + torch.eye(Sigma_inv.shape[0], **tensor_args) * 1.e-3
         self.Sigma_invs = self.Sigma_inv.repeat(self.num_modes, 1, 1)
         self.update_dist(self.means, self.Sigma_invs)
 

@@ -111,7 +111,7 @@ if __name__ == "__main__":
         start_state=start_state,
         multi_goal_states=multi_goal_states,
         cost=cost_composite,
-        step_size=0.1,
+        step_size=0.5,
         sigma_start_init=1e-3,
         sigma_goal_init=1e-3,
         sigma_gp_init=10.,

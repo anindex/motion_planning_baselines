@@ -5,13 +5,14 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
-from mp_baselines.planners.stoch_gpmp import StochGPMP
+from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
+from mp_baselines.planners.gpmp import GPMP
+from mp_baselines.planners.hybrid_planner import HybridPlanner
+from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environment.env_circles_2d import GridCircles2D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -53,10 +54,29 @@ if __name__ == "__main__":
 
     traj_len = 64
     dt = 0.02
-
     num_particles_per_goal = 5
+
+    ############### Sample-based planner
+    n_iters = 30000
+    step_size = 0.01
+    n_radius = 0.1
+    max_time = 15.
+
+    rrt_connect_params = dict(
+        task=task,
+        n_iters=n_iters,
+        start_state=start_state,
+        step_size=step_size,
+        n_radius=n_radius,
+        max_time=max_time,
+        goal_state=goal_state,
+        tensor_args=tensor_args,
+    )
+    sample_based_planner = RRTConnect(**rrt_connect_params)
+
+    ############### Optimization-based planner
     num_samples = 30
-    opt_iters = 10
+    opt_iters = 50
 
     # Construct cost function
     cost_sigmas = dict(
@@ -71,8 +91,7 @@ if __name__ == "__main__":
 
     sigma_goal_prior = 0.001
     cost_goal_prior = CostGoalPrior(
-        robot, traj_len,
-        multi_goal_states=multi_goal_states_zero_vel,
+        robot, traj_len, multi_goal_states=multi_goal_states_zero_vel,
         num_particles_per_goal=num_particles_per_goal,
         num_samples=num_samples,
         sigma_goal_prior=sigma_goal_prior,
@@ -102,33 +121,35 @@ if __name__ == "__main__":
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
-        opt_iters=1,  # Keep this 1 for visualization
-        num_samples=num_samples,
+        opt_iters=opt_iters,
         dt=dt,
         start_state=start_state,
         multi_goal_states=multi_goal_states,
         cost=cost_composite,
-        temperature=1.,
-        step_size=0.3,
+        step_size=0.5,
         sigma_start_init=1e-3,
         sigma_goal_init=1e-3,
         sigma_gp_init=10.,
         sigma_start_sample=1e-3,
         sigma_goal_sample=1e-3,
         sigma_gp_sample=1.,
+        solver_params={
+            'delta': 0.,
+            'trust_region': True,
+            'method': 'cholesky',
+        },
         tensor_args=tensor_args,
     )
-    planner = StochGPMP(**planner_params)
+    opt_based_planner = GPMP(**planner_params)
 
-    # Optimize
-    trajs_0 = planner.get_traj()
-    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape))
-    trajs_iters[0] = trajs_0
-    with Timer() as t:
-        for i in range(opt_iters):
-            trajs = planner.optimize(debug=True)
-            trajs_iters[i+1] = trajs
-    print(f'Optimization time: {t.elapsed:.3f} sec')
+    ############### Hybrid planner
+    planner = HybridPlanner(
+        sample_based_planner,
+        opt_based_planner,
+        tensor_args=tensor_args
+    )
+
+    trajs_iters = planner.optimize(debug=True, return_iterations=True)
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
