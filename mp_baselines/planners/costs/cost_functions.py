@@ -153,8 +153,9 @@ class CostCollision(Cost):
             A = torch.zeros(batch_size, self.traj_len - 1, self.dim * self.traj_len, **self.tensor_args)
             A[:, :, :H_obst.shape[-1]] = H_obst
             # shift each row by self.dim
-            idxs = torch.arange(A.shape[-1]).repeat(A.shape[-2], 1)
-            idxs = (idxs - torch.arange(self.dim, (idxs.shape[0] + 1) * self.dim, self.dim).view(-1, 1)) % idxs.shape[-1]
+            idxs = torch.arange(A.shape[-1], **self.tensor_args).repeat(A.shape[-2], 1)
+            idxs = (idxs - torch.arange(self.dim, (idxs.shape[0] + 1) * self.dim, self.dim, **self.tensor_args).view(-1, 1)) % idxs.shape[-1]
+            idxs = idxs.to(torch.int64)
             A = torch.gather(A, -1, idxs.repeat(batch_size, 1, 1))
 
             # old code not vectorized

@@ -27,7 +27,7 @@ class GPFactor:
 
         ## Pre-compute constant Jacobians
         self.H1 = self.phi.unsqueeze(0).repeat(self.num_factors, 1, 1)
-        self.H2 = -1. * torch.eye(self.state_dim).unsqueeze(0).repeat(
+        self.H2 = -1. * torch.eye(self.state_dim, **self.tensor_args).unsqueeze(0).repeat(
             self.num_factors, 1, 1,
         )
 

@@ -78,7 +78,7 @@ class HybridPlanner(MPPlanner):
 
             # Optimize
             trajs_0 = self.opt_based_planner.get_traj()
-            trajs_iters = torch.empty((self.opt_based_planner.opt_iters + 1, *trajs_0.shape))
+            trajs_iters = torch.empty((self.opt_based_planner.opt_iters + 1, *trajs_0.shape), **self.tensor_args)
             trajs_iters[0] = trajs_0
             with Timer() as t_opt_based:
                 for i in range(self.opt_based_planner.opt_iters):

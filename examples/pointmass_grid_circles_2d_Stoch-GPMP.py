@@ -38,57 +38,43 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
     start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    start_state_zero_vel = torch.cat((start_state, torch.zeros(start_state.nelement(), **tensor_args)))
     goal_state = torch.tensor([0.8, 0.8], **tensor_args)
-    goal_state_zero_vel = torch.cat((goal_state, torch.zeros(goal_state.nelement(), **tensor_args)))
-
-    multi_goal_states = goal_state.unsqueeze(0)  # add batch dim for interface
-    multi_goal_states_zero_vel = goal_state_zero_vel.unsqueeze(0)  # add batch dim for interface
-
-    traj_len = 64
-    dt = 0.02
-
-    num_particles_per_goal = 5
-    num_samples = 30
-    opt_iters = 10
 
     # Construct planner
+    traj_len = 64
+    dt = 0.02
+    num_particles_per_goal = 10
+
+    default_params_env = env.get_sgpmp_params()
+
     planner_params = dict(
+        **default_params_env,
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
-        opt_iters=1,  # Keep this 1 for visualization
-        num_samples=num_samples,
         dt=dt,
         start_state=start_state,
         multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
         collision_fields=task.get_collision_fields(),
-        temperature=1.,
-        step_size=0.3,
-        sigma_start_init=1e-3,
-        sigma_goal_init=1e-3,
-        sigma_gp_init=10.,
-        sigma_start_sample=1e-3,
-        sigma_goal_sample=1e-3,
-        sigma_gp_sample=1.,
         tensor_args=tensor_args,
     )
     planner = StochGPMP(**planner_params)
 
     # Optimize
+    opt_iters = default_params_env['opt_iters']
     trajs_0 = planner.get_traj()
-    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape))
+    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
     with Timer() as t:
         for i in range(opt_iters):
-            trajs = planner.optimize(debug=True)
+            trajs = planner.optimize(opt_iters=1, debug=True)
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 

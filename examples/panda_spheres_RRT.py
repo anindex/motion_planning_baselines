@@ -48,24 +48,22 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
-    n_iters = 30000
-    step_size = torch.pi/80
-    n_radius = torch.pi/4
-    max_time = 120
-
     if planner == 'rrt-connect':
+        rrt_connect_default_params = env.get_rrt_connect_params()
         rrt_connect_params = dict(
+            **rrt_connect_default_params,
             task=task,
-            n_iters=n_iters,
             start_state=start_state,
-            step_size=step_size,
-            n_radius=n_radius,
-            max_time=max_time,
             goal_state=goal_state,
             tensor_args=tensor_args,
         )
         planner = RRTConnect(**rrt_connect_params)
     elif planner == 'rrt-star':
+        n_iters = 30000
+        step_size = torch.pi / 80
+        n_radius = torch.pi / 4
+        max_time = 120
+
         max_best_cost_iters = 2000
         cost_eps = 1e-2
         n_knn = 10

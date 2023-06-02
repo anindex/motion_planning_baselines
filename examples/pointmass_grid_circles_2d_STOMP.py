@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     # Optimize
     trajs_0 = planner.get_traj()
-    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape))
+    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
     with Timer() as t:
         for i in range(opt_iters):

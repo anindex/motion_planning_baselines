@@ -89,7 +89,6 @@ class StochGPMP(OptimizationPlanner):
         # Initialize particles
         self.reset(initial_particle_means=initial_particle_means)
 
-
     def set_prior_factors(self):
 
         #========= Initialization factors ===============

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         use_occupancy_map=False,
         cell_size=0.01,

@@ -21,7 +21,7 @@ allow_ops_in_compiled_graph()
 
 if __name__ == "__main__":
     planner = 'rrt-connect'
-    # planner = 'rrt-star'
+    planner = 'rrt-star'
 
     seed = 0
     fix_random_seed(seed)
