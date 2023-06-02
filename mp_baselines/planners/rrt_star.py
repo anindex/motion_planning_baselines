@@ -85,9 +85,9 @@ class RRTStar(RRTBase):
 
     def __init__(
             self,
-            task,
-            n_iters: int,
-            start_state: torch.Tensor,
+            task=None,
+            n_iters: int = None,
+            start_state: torch.Tensor = None,
             n_iters_after_success=None,
             max_best_cost_iters: int = 1000,
             cost_eps: float = 1e-2,

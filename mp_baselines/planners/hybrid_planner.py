@@ -67,6 +67,7 @@ class HybridPlanner(MPPlanner):
                 traj_pos_vel_l.append(initial_traj_pos_vel)
 
             initial_traj_pos_vel = torch.stack(traj_pos_vel_l)
+            # TODO - now only accepts 1 goal
             initial_traj_pos_vel = einops.rearrange(initial_traj_pos_vel, 'n h d -> 1 n h d')
 
             #################################################

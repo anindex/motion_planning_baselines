@@ -58,47 +58,9 @@ if __name__ == "__main__":
     num_samples = 30
     opt_iters = 10
 
-    # Construct cost function
-    cost_sigmas = dict(
-        sigma_start=0.001,
-        sigma_gp=0.1,
-    )
-    cost_gp_prior = CostGP(
-        robot, traj_len, start_state_zero_vel, dt,
-        cost_sigmas,
-        tensor_args=tensor_args
-    )
-
-    sigma_goal_prior = 0.001
-    cost_goal_prior = CostGoalPrior(
-        robot, traj_len,
-        multi_goal_states=multi_goal_states_zero_vel,
-        num_particles_per_goal=num_particles_per_goal,
-        num_samples=num_samples,
-        sigma_goal_prior=sigma_goal_prior,
-        tensor_args=tensor_args
-    )
-
-    sigma_coll = 1e-3
-    cost_collisions = []
-    for collision_field in task.get_collision_fields():
-        cost_collisions.append(
-            CostCollision(
-                robot, traj_len,
-                field=collision_field,
-                sigma_coll=sigma_coll,
-                tensor_args=tensor_args
-            )
-        )
-
-    cost_func_list = [cost_gp_prior, cost_goal_prior, *cost_collisions]
-    cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
-        tensor_args=tensor_args
-    )
-
     # Construct planner
     planner_params = dict(
+        robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
@@ -106,8 +68,8 @@ if __name__ == "__main__":
         num_samples=num_samples,
         dt=dt,
         start_state=start_state,
-        multi_goal_states=multi_goal_states,
-        cost=cost_composite,
+        multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
+        collision_fields=task.get_collision_fields(),
         temperature=1.,
         step_size=0.3,
         sigma_start_init=1e-3,

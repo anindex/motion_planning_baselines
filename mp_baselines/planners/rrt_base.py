@@ -10,10 +10,10 @@ class RRTBase(MPPlanner):
 
     def __init__(
             self,
-            name,
-            task,
-            n_iters: int,
-            start_state: torch.Tensor,
+            name: str = 'RRTBase',
+            task=None,
+            n_iters: int = None,
+            start_state: torch.Tensor = None,
             goal_state: torch.Tensor = None,
             step_size: float = 0.1,
             n_radius: float = 1.,

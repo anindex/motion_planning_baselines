@@ -3,25 +3,95 @@ import einops
 import torch
 
 from mp_baselines.planners.base import OptimizationPlanner
+from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
+
+
+def build_gpmp_cost_composite(
+    robot=None,
+    traj_len=None,
+    dt=None,
+    start_state=None,
+    multi_goal_states=None,
+    num_particles_per_goal=None,
+    collision_fields=None,
+    extra_costs=[],
+    cost_sigma_start=1e-5,
+    cost_sigma_gp=1e-2,
+    cost_sigma_coll=1e-5,
+    cost_sigma_goal_prior=1e-5,
+    num_samples: int = 64,
+    tensor_args=None,
+    **kwargs,
+):
+    """
+    Construct cost composite function for GPMP and StochGPMP
+    """
+    cost_func_list = []
+
+    # Start state + GP cost
+    cost_sigmas = dict(
+        sigma_start=cost_sigma_start,
+        sigma_gp=cost_sigma_gp,
+    )
+    start_state_zero_vel = torch.cat((start_state, torch.zeros(start_state.nelement(), **tensor_args)))
+    cost_gp_prior = CostGP(
+        robot, traj_len, start_state_zero_vel, dt,
+        cost_sigmas,
+        tensor_args=tensor_args
+    )
+    cost_func_list.append(cost_gp_prior)
+
+    # Goal state cost
+    if multi_goal_states is not None:
+        multi_goal_states_zero_vel = torch.cat((multi_goal_states, torch.zeros_like(multi_goal_states)),
+                                               dim=-1).unsqueeze(0)  # add batch dim for interface
+        cost_goal_prior = CostGoalPrior(
+            robot, traj_len, multi_goal_states=multi_goal_states_zero_vel,
+            num_particles_per_goal=num_particles_per_goal,
+            num_samples=num_samples,
+            sigma_goal_prior=cost_sigma_goal_prior,
+            tensor_args=tensor_args
+        )
+        cost_func_list.append(cost_goal_prior)
+
+    # Collision costs
+    for collision_field in collision_fields:
+        cost_collision = CostCollision(
+            robot, traj_len,
+            field=collision_field,
+            sigma_coll=cost_sigma_coll,
+            tensor_args=tensor_args
+        )
+        cost_func_list.append(cost_collision)
+
+    # Other costs
+    if extra_costs:
+        cost_func_list.append(*extra_costs)
+
+    cost_composite = CostComposite(
+        robot, traj_len, cost_func_list,
+        tensor_args=tensor_args
+    )
+    return cost_composite
 
 
 class GPMP(OptimizationPlanner):
 
     def __init__(
             self,
-            n_dof: int,
-            traj_len: int,
-            num_particles_per_goal: int,
-            opt_iters: int,
-            dt: float,
-            start_state: torch.Tensor,
+            robot=None,
+            n_dof: int = None,
+            traj_len: int = None,
+            num_particles_per_goal: int = None,
+            opt_iters: int = None,
+            dt: float = None,
+            start_state: torch.Tensor = None,
             step_size=1.,
             multi_goal_states=None,
             initial_particle_means=None,
-            cost=None,
             sigma_start_init=None,
             sigma_start_sample=None,
             sigma_goal_init=None,
@@ -39,7 +109,6 @@ class GPMP(OptimizationPlanner):
             opt_iters=opt_iters,
             dt=dt,
             start_state=start_state,
-            cost=cost,
             initial_particle_means=initial_particle_means,
             multi_goal_states=multi_goal_states,
             sigma_start_init=sigma_start_init,
@@ -71,10 +140,23 @@ class GPMP(OptimizationPlanner):
         self._weights = None
         self._dist = None
 
+        ##############################################
+        # Construct cost function
+        self.cost = build_gpmp_cost_composite(
+            robot=robot,
+            traj_len=traj_len,
+            dt=dt,
+            start_state=start_state,
+            multi_goal_states=multi_goal_states,
+            num_particles_per_goal=num_particles_per_goal,
+            **kwargs
+        )
+
+        ##############################################
+        # Initialize particles
         self.reset(initial_particle_means=initial_particle_means)
 
     def set_prior_factors(self):
-
         #========= Initialization factors ===============
         self.start_prior_init = UnaryFactor(
             self.d_state_opt,

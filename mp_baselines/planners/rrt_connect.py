@@ -58,9 +58,9 @@ class RRTConnect(RRTBase):
 
     def __init__(
             self,
-            task,
-            n_iters: int,
-            start_state: torch.Tensor,
+            task=None,
+            n_iters: int = None,
+            start_state: torch.Tensor = None,
             step_size: float = 0.1,
             n_radius: float = 1.,
             max_time: float = 60.,
@@ -185,6 +185,8 @@ class RRTConnect(RRTBase):
                     break
 
         if path is not None:
+            if len(path) == 1:
+                return None
             self.print_info(iteration, t.elapsed, success)
             return purge_duplicates_from_traj(path, eps=1e-6)
         return path

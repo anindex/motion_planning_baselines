@@ -11,7 +11,12 @@ from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 class MPPlanner(ABC):
     """Base class for all planners."""
 
-    def __init__(self, name: str, tensor_args: dict = None, **kwargs):
+    def __init__(
+        self,
+        name: str = None,
+        tensor_args: dict = None,
+        **kwargs
+    ):
         self.name = name
         if tensor_args is None:
             tensor_args = {
@@ -58,21 +63,24 @@ class MPPlanner(ABC):
 
 class OptimizationPlanner(MPPlanner):
 
-    def __init__(self, name: str,
-                n_dof: int,
-                traj_len: int,
-                num_particles_per_goal: int,
-                opt_iters: int,
-                dt: float,
-                start_state: torch.Tensor,
-                cost=None,
-                initial_particle_means=None,
-                multi_goal_states: torch.Tensor = None,
-                sigma_start_init: float = 0.001,
-                sigma_goal_init: float = 0.001,
-                sigma_gp_init: float = 10.,
-                pos_only: bool = False,
-                tensor_args: dict = None, **kwargs):
+    def __init__(
+        self,
+        name: str = 'OptimizationPlanner',
+        n_dof: int = None,
+        traj_len: int = None,
+        num_particles_per_goal: int = None,
+        opt_iters: int = None,
+        dt: float = None,
+        start_state: torch.Tensor = None,
+        cost=None,
+        initial_particle_means=None,
+        multi_goal_states: torch.Tensor = None,
+        sigma_start_init: float = 0.001,
+        sigma_goal_init: float = 0.001,
+        sigma_gp_init: float = 10.,
+        pos_only: bool = False,
+        tensor_args: dict = None, **kwargs
+    ):
         super().__init__(name, tensor_args, **kwargs)
         self.n_dof = n_dof
         self.dim = 2 * self.n_dof
@@ -99,7 +107,8 @@ class OptimizationPlanner(MPPlanner):
         else:
             self.d_state_opt = 2 * self.n_dof
             self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
-            self.multi_goal_states = torch.cat([self.multi_goal_states, torch.zeros_like(self.multi_goal_states)], dim=-1)
+            if self.multi_goal_states is not None:
+                self.multi_goal_states = torch.cat([self.multi_goal_states, torch.zeros_like(self.multi_goal_states)], dim=-1)
 
         self.sigma_start_init = sigma_start_init
         self.sigma_goal_init = sigma_goal_init
