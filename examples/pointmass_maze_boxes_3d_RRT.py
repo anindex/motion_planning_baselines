@@ -21,7 +21,7 @@ allow_ops_in_compiled_graph()
 
 if __name__ == "__main__":
     planner = 'rrt-connect'
-    planner = 'rrt-star'
+    # planner = 'rrt-star'
 
     seed = 0
     fix_random_seed(seed)
@@ -57,13 +57,11 @@ if __name__ == "__main__":
     max_time = 60.
 
     if planner == 'rrt-connect':
+        rrt_connect_default_params = env.get_rrt_connect_params()
         rrt_connect_params = dict(
+            **rrt_connect_default_params,
             task=task,
-            n_iters=n_iters,
             start_state=start_state,
-            step_size=step_size,
-            n_radius=n_radius,
-            max_time=max_time,
             goal_state=goal_state,
             tensor_args=tensor_args,
         )

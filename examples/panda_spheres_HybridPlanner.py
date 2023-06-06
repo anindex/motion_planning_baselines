@@ -19,7 +19,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 10
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 2
+    num_particles_per_goal = 10
 
     gpmp_default_params_env = env.get_gpmp_params()
 
@@ -77,6 +77,7 @@ if __name__ == "__main__":
     opt_based_planner = GPMP(**planner_params)
 
     ############### Hybrid planner
+    opt_iters = planner_params['opt_iters']
     planner = HybridPlanner(
         sample_based_planner,
         opt_based_planner,
@@ -90,6 +91,11 @@ if __name__ == "__main__":
         task=task,
         planner=planner
     )
+
+    print(f'----------------STATISTICS----------------')
+    print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'success {task.compute_success_free_trajs(trajs_iters[-1])}')
 
     base_file_name = Path(os.path.basename(__file__)).stem
 
@@ -106,18 +112,18 @@ if __name__ == "__main__":
         pos_start_state=start_state, pos_goal_state=goal_state,
         vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
         video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
-        n_frames=max((2, gpmp_default_params_env['opt_iters'] // 10)),
+        n_frames=max((2, opt_iters // 10)),
         anim_time=5
     )
 
     planner_visualizer.render_robot_trajectories(
-        trajs=pos_trajs_iters[-1], start_state=start_state, goal_state=goal_state,
+        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
         render_planner=False,
     )
 
     planner_visualizer.animate_robot_trajectories(
-        trajs=pos_trajs_iters[-1], start_state=start_state, goal_state=goal_state,
-        plot_trajs=True,
+        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+        plot_trajs=False,
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],

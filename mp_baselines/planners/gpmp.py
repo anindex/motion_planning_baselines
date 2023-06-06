@@ -18,10 +18,10 @@ def build_gpmp_cost_composite(
     num_particles_per_goal=None,
     collision_fields=None,
     extra_costs=[],
-    cost_sigma_start=1e-5,
-    cost_sigma_gp=1e-2,
-    cost_sigma_coll=1e-5,
-    cost_sigma_goal_prior=1e-5,
+    sigma_start=1e-5,
+    sigma_gp=1e-2,
+    sigma_coll=1e-5,
+    sigma_goal_prior=1e-5,
     num_samples: int = 64,
     tensor_args=None,
     **kwargs,
@@ -33,8 +33,8 @@ def build_gpmp_cost_composite(
 
     # Start state + GP cost
     cost_sigmas = dict(
-        sigma_start=cost_sigma_start,
-        sigma_gp=cost_sigma_gp,
+        sigma_start=sigma_start,
+        sigma_gp=sigma_gp,
     )
     start_state_zero_vel = torch.cat((start_state, torch.zeros(start_state.nelement(), **tensor_args)))
     cost_gp_prior = CostGP(
@@ -52,7 +52,7 @@ def build_gpmp_cost_composite(
             robot, traj_len, multi_goal_states=multi_goal_states_zero_vel,
             num_particles_per_goal=num_particles_per_goal,
             num_samples=num_samples,
-            sigma_goal_prior=cost_sigma_goal_prior,
+            sigma_goal_prior=sigma_goal_prior,
             tensor_args=tensor_args
         )
         cost_func_list.append(cost_goal_prior)
@@ -62,7 +62,7 @@ def build_gpmp_cost_composite(
         cost_collision = CostCollision(
             robot, traj_len,
             field=collision_field,
-            sigma_coll=cost_sigma_coll,
+            sigma_coll=sigma_coll,
             tensor_args=tensor_args
         )
         cost_func_list.append(cost_collision)

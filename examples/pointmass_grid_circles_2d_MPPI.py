@@ -9,7 +9,7 @@ from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
 from mp_baselines.planners.dynamics.point import PointParticleDynamics
 from mp_baselines.planners.mppi import MPPI
-from torch_robotics.environment.env_circles_2d import GridCircles2D
+from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = GridCircles2D(
+    env = EnvGridCircles2D(
         tensor_args=tensor_args
     )
 

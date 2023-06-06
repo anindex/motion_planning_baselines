@@ -9,7 +9,7 @@ from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, Co
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
-from torch_robotics.environment.env_circles_2d import GridCircles2D
+from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = GridCircles2D(
+    env = EnvGridCircles2D(
         tensor_args=tensor_args
     )
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         tensor_args=tensor_args
     )
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 3
+    num_particles_per_goal = 10
 
     gpmp_default_params_env = env.get_gpmp_params()
 

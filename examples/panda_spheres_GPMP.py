@@ -18,7 +18,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 10
+    seed = 11
     fix_random_seed(seed)
 
     device = get_torch_device()

@@ -7,7 +7,6 @@ import torch
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
 from torch_robotics.environment.env_base import EnvBase
-from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.utils import create_grid_spheres
 from torch_robotics.robot.point_mass_robot import PointMassRobot
@@ -32,7 +31,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
+    env = EnvGridCircles2D(
         tensor_args=tensor_args
     )
 
@@ -44,7 +43,7 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        # ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         use_occupancy_map=False,
         cell_size=0.01,
@@ -52,8 +51,8 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.5, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.5, -0.05], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([-0.8, 0.8], **tensor_args)
 
     n_iters = 30000
     step_size = 0.01

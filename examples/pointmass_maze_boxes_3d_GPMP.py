@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
-from mp_baselines.planners.stomp import STOMP
+from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
+from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
+from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -23,84 +24,56 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float32}
+    tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvGridCircles2D(
-        tensor_args=tensor_args
-    )
+    env = EnvMazeBoxes3D(tensor_args=tensor_args)
 
     robot = PointMassRobot(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
+        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
 
-    multi_goal_states = goal_state.unsqueeze(0)
-
+    # Construct planner
     traj_len = 64
     dt = 0.02
+    num_particles_per_goal = 10
 
-    # Construct cost function
-    sigma_coll = 1e-3
-    cost_collisions = []
-    for collision_field in task.get_collision_fields():
-        cost_collisions.append(
-            CostCollision(
-                robot, traj_len,
-                field=collision_field,
-                sigma_coll=sigma_coll,
-                tensor_args=tensor_args
-            )
-        )
-
-    cost_func_list = [*cost_collisions]
-    cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
-        tensor_args=tensor_args
-    )
-
-    num_particles_per_goal = 4
-    opt_iters = 20
+    default_params_env = env.get_gpmp_params()
 
     planner_params = dict(
+        **default_params_env,
+        robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
         num_particles_per_goal=num_particles_per_goal,
-        opt_iters=1,  # Keep this 1 for visualization
-        num_samples=30,
         dt=dt,
         start_state=start_state,
-        cost=cost_composite,
-        temperature=1.,
-        step_size=0.1,
-        sigma_spectral=0.1,
-        multi_goal_states=multi_goal_states,
-        sigma_start_init=0.001,
-        sigma_goal_init=0.001,
-        sigma_gp_init=5.,
-        pos_only=False,
+        multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
+        collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner = STOMP(**planner_params)
+    planner = GPMP(**planner_params)
 
     # Optimize
+    opt_iters = default_params_env['opt_iters']
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
     with Timer() as t:
         for i in range(opt_iters):
-            trajs = planner.optimize(debug=True)
+            trajs = planner.optimize(opt_iters=1, debug=True)
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
