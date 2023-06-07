@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 5
+    num_particles_per_goal = 2
 
     gpmp_default_params_env = env.get_gpmp_params()
 

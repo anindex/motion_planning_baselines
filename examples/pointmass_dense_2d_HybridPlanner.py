@@ -23,7 +23,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 27
+    seed = 50
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -68,8 +68,8 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    # sample_based_planner = RRTConnect(**rrt_connect_params)
-    sample_based_planner = RRTStar(**rrt_connect_params)
+    sample_based_planner = RRTConnect(**rrt_connect_params)
+    # sample_based_planner = RRTStar(**rrt_connect_params)
 
     ############### Optimization-based planner
     traj_len = 64
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     num_particles_per_goal = 10
 
     gpmp_default_params_env = env.get_gpmp_params()
-    # gpmp_default_params_env['opt_iters'] = 200
+    gpmp_default_params_env['opt_iters'] = 500
 
     # Construct planner
     planner_params = dict(

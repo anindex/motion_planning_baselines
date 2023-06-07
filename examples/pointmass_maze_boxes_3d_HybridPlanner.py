@@ -9,6 +9,7 @@ from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, Co
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
+from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
 from torch_robotics.robot.point_mass_robot import PointMassRobot
@@ -56,12 +57,13 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    sample_based_planner = RRTConnect(**rrt_connect_params)
+    # sample_based_planner = RRTConnect(**rrt_connect_params)
+    sample_based_planner = RRTStar(**rrt_connect_params)
 
     ############### Optimization-based planner
-    traj_len = 64
+    traj_len = 128
     dt = 0.02
-    num_particles_per_goal = 10
+    num_particles_per_goal = 5
 
     gpmp_default_params_env = env.get_gpmp_params()
 
