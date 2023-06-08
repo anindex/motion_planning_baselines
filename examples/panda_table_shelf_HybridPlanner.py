@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 from matplotlib import pyplot as plt
@@ -9,6 +10,7 @@ from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.panda_robot import PandaRobot
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -19,14 +21,14 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 3
+    seed = 77
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvSpheres3D(tensor_args=tensor_args)
+    env = EnvTableShelf(tensor_args=tensor_args)
 
     robot = PandaRobot(tensor_args=tensor_args)
 
@@ -41,6 +43,14 @@ if __name__ == "__main__":
     q_free = task.random_coll_free_q(n_samples=2)
     start_state = q_free[0]
     goal_state = q_free[1]
+
+    for _ in range(100):
+        q_free = task.random_coll_free_q(n_samples=2)
+        start_state = q_free[0]
+        goal_state = q_free[1]
+        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/6):
+            break
+
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -57,7 +67,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 5
+    num_particles_per_goal = 2
 
     gpmp_default_params_env = env.get_gpmp_params()
 
