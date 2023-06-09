@@ -8,7 +8,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
 from torch_robotics.environment.env_planar2link import EnvPlanar2Link
-from torch_robotics.robot.planar2link_robot import Planar2LinkRobot
+from torch_robotics.robot.robot_planar2link import RobotPlanar2Link
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import Timer
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = Planar2LinkRobot(
+    robot = RobotPlanar2Link(
         tensor_args=tensor_args
     )
 

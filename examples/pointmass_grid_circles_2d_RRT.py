@@ -10,7 +10,7 @@ from torch_robotics.environment.env_base import EnvBase
 from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.utils import create_grid_spheres
-from torch_robotics.robot.point_mass_robot import PointMassRobot
+from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import Timer
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = PointMassRobot(
+    robot = RobotPointMass(
         q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )

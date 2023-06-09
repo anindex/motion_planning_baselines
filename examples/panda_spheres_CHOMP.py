@@ -8,7 +8,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.cost_functions import CostComposite, CostCollision
 from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
-from torch_robotics.robot.panda_robot import PandaRobot
+from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import Timer
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvSpheres3D(tensor_args=tensor_args)
 
-    robot = PandaRobot(tensor_args=tensor_args)
+    robot = RobotPanda(tensor_args=tensor_args)
 
     task = PlanningTask(
         env=env,

@@ -12,7 +12,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
-from torch_robotics.robot.point_mass_robot import PointMassRobot
+from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvMazeBoxes3D(tensor_args=tensor_args)
 
-    robot = PointMassRobot(
+    robot = RobotPointMass(
         q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
