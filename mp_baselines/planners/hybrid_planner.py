@@ -3,7 +3,7 @@ import torch
 
 from mp_baselines.planners.base import MPPlanner
 from torch_robotics.torch_utils.torch_timer import Timer
-from torch_robotics.torch_utils.torch_utils import tensor_linspace
+from torch_robotics.torch_utils.torch_utils import tensor_linspace_v1
 from torch_robotics.trajectory.utils import smoothen_trajectory
 
 
@@ -45,7 +45,7 @@ class HybridPlanner(MPPlanner):
                     # If no solution was found, create a linear interpolated trajectory between start and finish, even
                     # if is not collision-free
                     if traj is None:
-                        traj = tensor_linspace(
+                        traj = tensor_linspace_v1(
                             self.sample_based_planner.start_state, self.sample_based_planner.goal_state,
                             steps=self.opt_based_planner.traj_len
                         ).T

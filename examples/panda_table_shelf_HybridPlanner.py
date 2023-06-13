@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
-from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
 from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
@@ -21,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 77
+    seed = 1
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -48,7 +47,7 @@ if __name__ == "__main__":
         q_free = task.random_coll_free_q(n_samples=2)
         start_state = q_free[0]
         goal_state = q_free[1]
-        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/6):
+        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
             break
 
 
