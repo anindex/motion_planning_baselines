@@ -27,6 +27,8 @@ if __name__ == "__main__":
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvGridCircles2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
         tensor_args=tensor_args
     )
 

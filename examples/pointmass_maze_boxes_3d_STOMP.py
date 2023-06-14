@@ -26,7 +26,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvMazeBoxes3D(tensor_args=tensor_args)
+    env = EnvMazeBoxes3D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPointMass(
         q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits

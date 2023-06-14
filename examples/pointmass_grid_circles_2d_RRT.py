@@ -32,7 +32,7 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
+    env = EnvGridCircles2D(
         tensor_args=tensor_args
     )
 

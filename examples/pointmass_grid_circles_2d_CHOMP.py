@@ -27,6 +27,8 @@ if __name__ == "__main__":
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvGridCircles2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
         tensor_args=tensor_args
     )
 
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     )
 
     num_particles_per_goal = 3
-    opt_iters = 20
+    opt_iters = 50
 
     planner_params = dict(
         n_dof=robot.q_dim,
@@ -80,7 +82,7 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.01,
+        step_size=0.1,
         grad_clip=.01,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,

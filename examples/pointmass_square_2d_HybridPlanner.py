@@ -31,6 +31,8 @@ if __name__ == "__main__":
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvSquare2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
         tensor_args=tensor_args
     )
 

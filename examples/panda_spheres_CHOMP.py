@@ -26,7 +26,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvSpheres3D(tensor_args=tensor_args)
+    env = EnvSpheres3D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPanda(tensor_args=tensor_args)
 
@@ -66,7 +70,6 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-
     num_particles_per_goal = 3
     opt_iters = 50
 
@@ -78,7 +81,7 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.01,
+        step_size=0.1,
         grad_clip=.01,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,

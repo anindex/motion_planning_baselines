@@ -18,14 +18,18 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 11
+    seed = 13
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvSpheres3D(tensor_args=tensor_args)
+    env = EnvSpheres3D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPanda(tensor_args=tensor_args)
 

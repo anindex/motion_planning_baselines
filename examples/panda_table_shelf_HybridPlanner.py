@@ -27,7 +27,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float64}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvTableShelf(tensor_args=tensor_args)
+    env = EnvTableShelf(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPanda(tensor_args=tensor_args)
 
@@ -66,7 +70,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 2
+    num_particles_per_goal = 1
 
     gpmp_default_params_env = env.get_gpmp_params()
 
@@ -83,6 +87,7 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
+    planner_params['opt_iters']=10
     opt_based_planner = GPMP(**planner_params)
 
     ############### Hybrid planner
