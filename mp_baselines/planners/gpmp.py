@@ -366,9 +366,7 @@ class GPMP(OptimizationPlanner):
             # method 3
             l, _ = torch.linalg.cholesky_ex(A)
             res = torch.cholesky_solve(b, l)
-
             return res
-
         else:
             raise NotImplementedError
 
