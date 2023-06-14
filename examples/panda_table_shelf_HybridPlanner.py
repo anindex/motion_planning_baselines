@@ -24,7 +24,7 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float16}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvTableShelf(
@@ -38,21 +38,28 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-0.5, 0.75, -0.25], [1.25, -0.5, 1.5]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.05,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    q_free = task.random_coll_free_q(n_samples=2)
-    start_state = q_free[0]
-    goal_state = q_free[1]
+    # q_free = task.random_coll_free_q(n_samples=2)
+    # start_state = q_free[0]
+    # goal_state = q_free[1]
+    #
+    # for _ in range(100):
+    #     q_free = task.random_coll_free_q(n_samples=2)
+    #     start_state = q_free[0]
+    #     goal_state = q_free[1]
+    #     if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
+    #         break
+    #
+    # print(start_state)
+    # print(goal_state)
 
-    for _ in range(100):
-        q_free = task.random_coll_free_q(n_samples=2)
-        start_state = q_free[0]
-        goal_state = q_free[1]
-        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
-            break
+    start_state = torch.tensor([-2.2248, -0.6046,  1.7909, -1.5844, -0.4575,  3.6484, -1.4562], **tensor_args)
+    goal_state = torch.tensor([0.1927,  1.2406, -0.4233, -1.6301, -2.7528,  2.5637, -0.7582], **tensor_args)
 
 
     ############### Sample-based planner
