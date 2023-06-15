@@ -1,12 +1,18 @@
 # Adapted from https://github.com/anindex/stoch_gpmp
 import einops
 import torch
+from scipy.sparse import csc_matrix
+from scipy.sparse.linalg import spsolve
 
 from mp_baselines.planners.base import OptimizationPlanner
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
+
+import cholespy
+
+from torch_robotics.torch_utils.torch_utils import to_numpy
 
 
 def build_gpmp_cost_composite(
@@ -332,6 +338,7 @@ class GPMP(OptimizationPlanner):
             delta=0.,
             trust_region=False,
     ):
+        # Levenberg - Marquardt
         I = torch.eye(self.N, self.N, **self.tensor_args)
         A_t_K = A.transpose(-2, -1) @ K
         A_t_A = A_t_K @ A
@@ -351,7 +358,7 @@ class GPMP(OptimizationPlanner):
         method,
     ):
         if method == 'inverse':
-            return torch.linalg.solve(A, b)
+            res = torch.linalg.solve(A, b)
         elif method == 'cholesky':
             # method 1
             # old implementation - recheck torch.allclose(res, torch.linalg.solve(A, b))
@@ -366,9 +373,44 @@ class GPMP(OptimizationPlanner):
             # method 3
             l, _ = torch.linalg.cholesky_ex(A)
             res = torch.cholesky_solve(b, l)
-            return res
+        elif method == 'cholesky-sparse-scipy':
+            A_np = to_numpy(einops.rearrange(A, "b m n -> (b m) n"))
+            b_np = to_numpy(einops.rearrange(b, "b m n -> (b m) n").squeeze())
+            A_np_sparse = csc_matrix(A_np, dtype=A_np.dtype)
+            b_np_sparse = csc_matrix(b_np, dtype=b_np.dtype)
+            x = spsolve(A_np, b_np)
+
+
+        elif method == 'cholesky-sparse':
+            if self.tensor_args['dtype'] == torch.float32:
+                cholesky_fn = cholespy.CholeskySolverF
+            elif self.tensor_args['dtype'] == torch.float64:
+                cholesky_fn = cholespy.CholeskySolverD
+            else:
+                raise NotImplementedError
+
+            # TODO - remove for loop
+            # https://github.com/rgl-epfl/cholespy/issues/26
+            res = []
+            for A_, b_ in zip(A, b):
+                A_sparse = A_.to_sparse(layout=torch.sparse_coo)
+                solver = cholesky_fn(
+                    A_sparse.size()[0],
+                    A_sparse.indices()[0], A_sparse.indices()[1], A_sparse.values(),
+                    cholespy.MatrixType.COO
+                )
+                res_ = torch.zeros_like(b_)
+                solver.solve(b_, res_)
+                res.append(res_)
+            res = torch.stack(res)
+
+        elif method == 'lstq':
+            # usually empirically slower
+            res = torch.linalg.lstsq(A, b)[0]
         else:
             raise NotImplementedError
+
+        return res
 
     def _get_costs(self, errors, w_mat):
         costs = errors.transpose(1, 2) @ w_mat.unsqueeze(0) @ errors
