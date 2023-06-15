@@ -373,14 +373,6 @@ class GPMP(OptimizationPlanner):
             # method 3
             l, _ = torch.linalg.cholesky_ex(A)
             res = torch.cholesky_solve(b, l)
-        elif method == 'cholesky-sparse-scipy':
-            A_np = to_numpy(einops.rearrange(A, "b m n -> (b m) n"))
-            b_np = to_numpy(einops.rearrange(b, "b m n -> (b m) n").squeeze())
-            A_np_sparse = csc_matrix(A_np, dtype=A_np.dtype)
-            b_np_sparse = csc_matrix(b_np, dtype=b_np.dtype)
-            x = spsolve(A_np, b_np)
-
-
         elif method == 'cholesky-sparse':
             if self.tensor_args['dtype'] == torch.float32:
                 cholesky_fn = cholespy.CholeskySolverF
