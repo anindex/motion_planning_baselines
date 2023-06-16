@@ -1,8 +1,7 @@
 # Adapted from https://github.com/anindex/stoch_gpmp
 import einops
+import numpy as np
 import torch
-from scipy.sparse import csc_matrix
-from scipy.sparse.linalg import spsolve
 
 from mp_baselines.planners.base import OptimizationPlanner
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
@@ -10,9 +9,12 @@ from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 
-import cholespy
+try:
+    import cholespy
+except ModuleNotFoundError:
+    pass
 
-from torch_robotics.torch_utils.torch_utils import to_numpy
+from torch_robotics.torch_utils.torch_timer import Timer
 
 
 def build_gpmp_cost_composite(
@@ -287,7 +289,6 @@ class GPMP(OptimizationPlanner):
             debug=False,
             **observation
     ):
-
         if opt_iters is None:
             opt_iters = self.opt_iters
 
@@ -310,10 +311,22 @@ class GPMP(OptimizationPlanner):
     def _step(self, **observation):
         A, b, K = self.cost.get_linear_system(self._particle_means, **observation)
 
+        # TODO - remove cast one float32 is fixed
+        cast_to_float32 = self.solver_params.get('cast_to_float32', True)
+        if cast_to_float32:
+            # Convert to float32
+            # We found that for dense tensors matrix multiplication in float32 is much faster than float64
+            # For sparse tensors this does not seem to make a difference
+            A = A.to(torch.float32)
+            b = b.to(torch.float32)
+            K = K.to(torch.float32)
+
         J_t_J, g = self._get_grad_terms(
             A, b, K,
             delta=self.solver_params['delta'],
-            trust_region=self.solver_params['trust_region'],
+            trust_region=self.solver_params.get('trust_region', False),
+            sparse_computation=self.solver_params.get('sparse_computation', False),
+            sparse_computation_block_diag=self.solver_params.get('sparse_computation_block_diag', False)
         )
 
         d_theta = self.get_torch_solve(
@@ -327,6 +340,11 @@ class GPMP(OptimizationPlanner):
                 self.d_state_opt,
             )
 
+        if cast_to_float32:
+            d_theta = d_theta.to(self.tensor_args['dtype'])
+            b = b.to(self.tensor_args['dtype'])
+            K = K.to(self.tensor_args['dtype'])
+
         self._particle_means = self._particle_means + self.step_size * d_theta
         self._particle_means.detach_()
 
@@ -336,20 +354,89 @@ class GPMP(OptimizationPlanner):
             self,
             A, b, K,
             delta=0.,
+            cast_to_float32=False,
             trust_region=False,
+            sparse_computation=False,
+            sparse_computation_block_diag=False
     ):
-        # Levenberg - Marquardt
-        I = torch.eye(self.N, self.N, **self.tensor_args)
-        A_t_K = A.transpose(-2, -1) @ K
-        A_t_A = A_t_K @ A
-        if not trust_region:
-            J_t_J = A_t_A + delta * I
+        # Levenberg - Marquardt approximation
+
+        B, M, N = A.shape
+        if not sparse_computation:
+            # Original implementation with dense matrices
+            I = torch.eye(self.N, self.N, device=self.tensor_args['device'], dtype=A.dtype)
+            A_t_K = A.transpose(-2, -1) @ K
+            A_t_A = A_t_K @ A
+
+            if not trust_region:
+                J_t_J = A_t_A + delta * I
+            else:
+                # J_t_J = A_t_A + delta * I * torch.diagonal(A_t_A, dim1=-2, dim2=-1).unsqueeze(-1)
+                # Since hessian will be averaged over particles, add diagonal matrix of the mean.
+                diag_A_t_A = A_t_A.mean(0) * I
+                J_t_J = A_t_A + delta * diag_A_t_A
+            g = A_t_K @ b
         else:
-            # J_t_J = A_t_A + delta * I * torch.diagonal(A_t_A, dim1=-2, dim2=-1).unsqueeze(-1)
-            # Since hessian will be averaged over particles, add diagonal matrix of the mean.
-            diag_A_t_A = A_t_A.mean(0) * I
-            J_t_J = A_t_A + delta * diag_A_t_A
-        g = A_t_K @ b
+            ################################################
+            # Sparse matrix with loop over batch dimension
+            if not sparse_computation_block_diag:
+                I_sparse = torch.sparse_coo_tensor(
+                    torch.arange(0, self.N).repeat(2, 1),
+                    torch.ones(self.N),
+                    (self.N, self.N),
+                    device=self.tensor_args['device']
+                )
+
+                J_t_J_sparse_l = []
+                g_sparse_l = []
+                for A_, K_, b_ in zip(A, K, b):
+                    A_t_K_sparse = torch.sparse.mm(A_.transpose(-2, -1).to_sparse(), K_.to_sparse())
+                    A_t_A_sparse = torch.sparse.mm(A_t_K_sparse, A_.to_sparse())
+                    if not trust_region:
+                        J_t_J_sparse = A_t_A_sparse + delta * I_sparse
+                    else:
+                        diag_A_t_A_sparse = A_t_A_sparse.values().mean() * I_sparse
+                        J_t_J_sparse = A_t_A_sparse + delta * diag_A_t_A_sparse
+
+                    J_t_J_sparse_l.append(J_t_J_sparse)
+                    g_sparse = torch.sparse.mm(A_t_K_sparse, b_.to_sparse())
+                    g_sparse_l.append(g_sparse)
+
+                J_t_J = torch.stack([x.to_dense() for x in J_t_J_sparse_l])
+                g = torch.stack([x.to_dense() for x in g_sparse_l])
+            else:
+                ################################################
+                # Sparse matrix with block diagonal, then extract block diagonals
+                # TODO - ATTENTION!
+                #  This implementation takes a lot of memory because of the block diagonal construction.
+                I_sparse = torch.sparse_coo_tensor(
+                    torch.arange(0, B * self.N).repeat(2, 1),
+                    torch.ones(B * self.N),
+                    (B * self.N, B * self.N),
+                    device=self.tensor_args['device']
+                )
+                A_block_diag_sparse = torch.block_diag(*A).to_sparse()
+                A_t_block_diag_sparse = torch.block_diag(*A.transpose(-2, -1)).to_sparse()
+                K_block_diag_sparse = torch.block_diag(*K).to_sparse()
+
+                A_t_K_sparse = torch.sparse.mm(A_t_block_diag_sparse, K_block_diag_sparse)
+                A_t_A_sparse = torch.sparse.mm(A_t_K_sparse, A_block_diag_sparse)
+                if not trust_region:
+                    J_t_J_sparse = A_t_A_sparse + delta * I_sparse
+                else:
+                    raise NotImplementedError
+                    # TODO - compute sparse version of diag_A_t_A_sparse
+                    # diag_A_t_A_sparse = A_t_A.mean(0) * I_sparse
+                    J_t_J_sparse = A_t_A_sparse + delta * diag_A_t_A_sparse
+
+                J_t_J_block_diag = J_t_J_sparse.to_dense()
+                g_sparse = torch.sparse.mm(A_t_K_sparse, torch.block_diag(*b).to_sparse())
+                g_block_diag = g_sparse.to_dense()
+
+                # TODO - remove for loop to extract block diagonals
+                J_t_J = torch.stack([J_t_J_block_diag[i*N:(i+1)*N, i*N:(i+1)*N] for i in range(B)])
+                g = torch.stack([g_block_diag[i * N:(i + 1) * N, i].unsqueeze(-1) for i in range(B)])
+
         return J_t_J, g
 
     def get_torch_solve(
@@ -373,31 +460,41 @@ class GPMP(OptimizationPlanner):
             # method 3
             l, _ = torch.linalg.cholesky_ex(A)
             res = torch.cholesky_solve(b, l)
-        elif method == 'cholesky-sparse':
-            if self.tensor_args['dtype'] == torch.float32:
-                cholesky_fn = cholespy.CholeskySolverF
-            elif self.tensor_args['dtype'] == torch.float64:
-                cholesky_fn = cholespy.CholeskySolverD
-            else:
-                raise NotImplementedError
 
-            # TODO - remove for loop
-            # https://github.com/rgl-epfl/cholespy/issues/26
-            res = []
-            for A_, b_ in zip(A, b):
-                A_sparse = A_.to_sparse(layout=torch.sparse_coo)
-                solver = cholesky_fn(
-                    A_sparse.size()[0],
-                    A_sparse.indices()[0], A_sparse.indices()[1], A_sparse.values(),
-                    cholespy.MatrixType.COO
-                )
-                res_ = torch.zeros_like(b_)
-                solver.solve(b_, res_)
-                res.append(res_)
-            res = torch.stack(res)
+        elif method == 'cholesky-sparse':
+            # TODO - ATTENTION!
+            #  This implementation takes a lot of memory because of the block diagonal construction.
+            raise NotImplementedError
+            # if self.tensor_args['dtype'] == torch.float32:
+            #     cholesky_fn = cholespy.CholeskySolverF
+            # elif self.tensor_args['dtype'] == torch.float64:
+            #     cholesky_fn = cholespy.CholeskySolverD
+            # else:
+            #     raise NotImplementedError
+
+            # convert batch to block diagonal - https://github.com/rgl-epfl/cholespy/issues/26
+            # TODO - creating a big block diagonal matrix leads to memory problems
+            A_block_diag = torch.block_diag(*A)
+            b_stacked = einops.rearrange(b, "b d 1 -> (b d) 1")
+
+            A_sparse = A_block_diag.to_sparse(layout=torch.sparse_coo)
+
+            cholesky_fn = cholespy.CholeskySolverF
+            solver = cholesky_fn(
+                A_sparse.size()[0],
+                A_sparse.indices()[0], A_sparse.indices()[1], A_sparse.values(),
+                cholespy.MatrixType.COO
+            )
+            res_ = torch.zeros_like(b_stacked)
+
+
+            solver.solve(b_stacked, res_)
+
+            # batchify results
+            res = einops.rearrange(res_, "(b d) 1 -> b d 1", b=A.shape[0])
 
         elif method == 'lstq':
-            # usually empirically slower
+            # empirically slower
             res = torch.linalg.lstsq(A, b)[0]
         else:
             raise NotImplementedError

@@ -77,7 +77,7 @@ if __name__ == "__main__":
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
-    exit()
+    # exit()
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
