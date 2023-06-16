@@ -2,20 +2,17 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
 from mp_baselines.planners.gpmp import GPMP
-from mp_baselines.planners.hybrid_planner import HybridPlanner
-from mp_baselines.planners.rrt_connect import RRTConnect
-from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
+from torch_robotics.torch_utils.torch_timer import Timer
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -23,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 50
+    seed = 0
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -44,49 +41,25 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        # ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        # ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         obstacle_buffer=0.01,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    # start_state = torch.tensor([-0.35, -0.66], **tensor_args)
-    # goal_state = torch.tensor([0.85, 0.2], **tensor_args)
-
-    # for _ in range(100):
-    #     q_free = task.random_coll_free_q(n_samples=2)
-    #     start_state = q_free[0]
-    #     goal_state = q_free[1]
-    #     if torch.linalg.norm(start_state - goal_state) > np.sqrt(1.5):
-    #         break
-
     start_state = torch.tensor([-0.8, -0.9], **tensor_args)
     goal_state = torch.tensor([0.9, 0.8], **tensor_args)
 
-    ############### Sample-based planner
-    rrt_connect_default_params_env = env.get_rrt_connect_params()
-
-    rrt_connect_params = dict(
-        **rrt_connect_default_params_env,
-        task=task,
-        start_state=start_state,
-        goal_state=goal_state,
-        tensor_args=tensor_args,
-    )
-    sample_based_planner = RRTConnect(**rrt_connect_params)
-    # sample_based_planner = RRTStar(**rrt_connect_params)
-
-    ############### Optimization-based planner
+    # Construct planner
     traj_len = 64
     dt = 0.02
     num_particles_per_goal = 10
 
-    gpmp_default_params_env = env.get_gpmp_params()
-    gpmp_default_params_env['opt_iters'] = 500
+    default_params_env = env.get_gpmp_params()
+    default_params_env['opt_iters'] = 500
 
-    # Construct planner
     planner_params = dict(
-        **gpmp_default_params_env,
+        **default_params_env,
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
@@ -97,16 +70,18 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    opt_based_planner = GPMP(**planner_params)
+    planner = GPMP(**planner_params)
 
-    ############### Hybrid planner
-    planner = HybridPlanner(
-        sample_based_planner,
-        opt_based_planner,
-        tensor_args=tensor_args
-    )
-
-    trajs_iters = planner.optimize(debug=True, return_iterations=True)
+    # Optimize
+    opt_iters = default_params_env['opt_iters']
+    trajs_0 = planner.get_traj()
+    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
+    trajs_iters[0] = trajs_0
+    with Timer() as t:
+        for i in range(opt_iters):
+            trajs = planner.optimize(opt_iters=1, debug=True)
+            trajs_iters[i+1] = trajs
+    print(f'Optimization time: {t.elapsed:.3f} sec')
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
@@ -134,7 +109,7 @@ if __name__ == "__main__":
         pos_start_state=start_state, pos_goal_state=goal_state,
         vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
         video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
-        n_frames=max((2, gpmp_default_params_env['opt_iters'] // 10)),
+        n_frames=max((2, opt_iters // 10)),
         anim_time=5
     )
 
@@ -155,7 +130,7 @@ if __name__ == "__main__":
     planner_visualizer.animate_opt_iters_robots(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
         video_filepath=f'{base_file_name}-traj-opt-iters.mp4',
-        n_frames=max((2, gpmp_default_params_env['opt_iters']//10)),
+        n_frames=max((2, opt_iters//10)),
         anim_time=5
     )
 
