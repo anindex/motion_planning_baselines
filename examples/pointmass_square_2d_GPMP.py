@@ -7,9 +7,12 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
 from mp_baselines.planners.gpmp import GPMP
+from mp_baselines.planners.hybrid_planner import HybridPlanner
+from mp_baselines.planners.rrt_connect import RRTConnect
+from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_dense_2d import EnvDense2D
-from torch_robotics.environment.env_dense_2d_extra_objects import EnvDense2DExtraObjects
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
+from torch_robotics.environment.env_square_2d import EnvSquare2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -21,22 +24,16 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 0
+    seed = 1
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    # env = EnvDense2D(
-    #     precompute_sdf_obj_fixed=True,
-    #     sdf_cell_size=0.005,
-    #     tensor_args=tensor_args
-    # )
-
-    env = EnvDense2DExtraObjects(
+    env = EnvSquare2D(
         precompute_sdf_obj_fixed=True,
-        sdf_cell_size=0.005,
+        sdf_cell_size=0.01,
         tensor_args=tensor_args
     )
 
@@ -48,24 +45,25 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        # ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.01,
+        # ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.02,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.9, -0.9], **tensor_args)
+    start_state = torch.tensor([-0.8, -0], **tensor_args)
     goal_state = torch.tensor([0.8, 0.0], **tensor_args)
 
-    # Construct planner
+    ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 10
+    num_particles_per_goal = 2
 
-    default_params_env = env.get_gpmp_params()
+    gpmp_default_params_env = env.get_gpmp_params()
 
+    # Construct planner
     planner_params = dict(
-        **default_params_env,
+        **gpmp_default_params_env,
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
@@ -79,7 +77,7 @@ if __name__ == "__main__":
     planner = GPMP(**planner_params)
 
     # Optimize
-    opt_iters = default_params_env['opt_iters']
+    opt_iters = gpmp_default_params_env['opt_iters']
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
@@ -115,7 +113,7 @@ if __name__ == "__main__":
         pos_start_state=start_state, pos_goal_state=goal_state,
         vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
         video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
-        n_frames=max((2, opt_iters // 10)),
+        n_frames=max((2, gpmp_default_params_env['opt_iters'] // 10)),
         anim_time=5
     )
 
@@ -136,7 +134,7 @@ if __name__ == "__main__":
     planner_visualizer.animate_opt_iters_robots(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
         video_filepath=f'{base_file_name}-traj-opt-iters.mp4',
-        n_frames=max((2, opt_iters//10)),
+        n_frames=max((2, gpmp_default_params_env['opt_iters']//10)),
         anim_time=5
     )
 

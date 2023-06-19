@@ -2,17 +2,15 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_dense_2d import EnvDense2D
-from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
+from torch_robotics.environment.env_dense_2d_extra_objects import EnvDense2DExtraObjects
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -30,7 +28,13 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    env = EnvDense2DExtraObjects(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.005,
         tensor_args=tensor_args
@@ -60,8 +64,8 @@ if __name__ == "__main__":
     #     if torch.linalg.norm(start_state - goal_state) > np.sqrt(1.5):
     #         break
 
-    start_state = torch.tensor([-0.8, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.9, 0.8], **tensor_args)
+    start_state = torch.tensor([-0.9, -0.9], **tensor_args)
+    goal_state = torch.tensor([0.25, 0.9], **tensor_args)
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -73,16 +77,16 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    sample_based_planner = RRTConnect(**rrt_connect_params)
-    # sample_based_planner = RRTStar(**rrt_connect_params)
+    # sample_based_planner = RRTConnect(**rrt_connect_params)
+    sample_based_planner = RRTStar(**rrt_connect_params)
 
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 10
+    num_particles_per_goal = 5
 
     gpmp_default_params_env = env.get_gpmp_params()
-    gpmp_default_params_env['opt_iters'] = 500
+    gpmp_default_params_env['opt_iters'] = 150
 
     # Construct planner
     planner_params = dict(
