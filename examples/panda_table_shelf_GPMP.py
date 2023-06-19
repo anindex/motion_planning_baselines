@@ -6,7 +6,6 @@ import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.gpmp import GPMP
-from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
 from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
@@ -19,7 +18,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 19
+    seed = 110
     fix_random_seed(seed)
 
     device = get_torch_device()

@@ -87,6 +87,11 @@ if __name__ == "__main__":
         planner=planner
     )
 
+    print(f'----------------STATISTICS----------------')
+    print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_iters[-1])*100:.2f}')
+    print(f'success {task.compute_success_free_trajs(trajs_iters[-1])}')
+
     base_file_name = Path(os.path.basename(__file__)).stem
 
     pos_trajs_iters = robot.get_position(trajs_iters)
