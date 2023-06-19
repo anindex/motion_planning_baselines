@@ -1,6 +1,7 @@
 # Adapted from https://github.com/anindex/stoch_gpmp
 
 import time
+from copy import copy
 
 import torch
 
@@ -133,7 +134,7 @@ class StochGPMP(OptimizationPlanner):
             particle_means=self._particle_means,
             goal_states=self.multi_goal_states
         )
-        self.Sigma_inv = self._sample_dist.Sigma_inv
+        self.Sigma_inv = self._sample_dist.Sigma_inv.to(**self.tensor_args)
         self.state_samples = self._sample_dist.sample(self.num_samples).to(**self.tensor_args)
 
     def set_prior_factors(self):
@@ -217,7 +218,6 @@ class StochGPMP(OptimizationPlanner):
             particle_means=None,
             goal_states=None,
     ):
-
         return MultiMPPrior(
             self.traj_len - 1,
             self.dt,
@@ -226,10 +226,10 @@ class StochGPMP(OptimizationPlanner):
             start_K,
             gp_K,
             state_init,
-            K_g_inv=goal_K,  # NOTE(sasha) Assume same goal Cov. for now
+            K_g_inv=goal_K,  # Assume same goal Cov. for now
             means=particle_means,
             goal_states=goal_states,
-            tensor_args=self.tensor_args,
+            tensor_args=self.tensor_args
         )
 
     def _get_costs(self, **observation):

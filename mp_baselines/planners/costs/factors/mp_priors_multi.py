@@ -6,6 +6,7 @@ Original source: https://github.com/sashalambert/mpc_trajopt
 __author__ = "Alexander Lambert"
 __license__ = "MIT"
 
+from copy import copy
 
 import torch
 import torch.distributions as dist
@@ -93,7 +94,6 @@ class MultiMPPrior:
         )
 
         self.Sigma_inv = Sigma_inv
-        # self.Sigma_inv = Sigma_inv + torch.eye(Sigma_inv.shape[0], **tensor_args) * 1.e-3
         self.Sigma_invs = self.Sigma_inv.repeat(self.num_modes, 1, 1)
         self.update_dist(self.means, self.Sigma_invs)
 
@@ -167,6 +167,41 @@ class MultiMPPrior:
         else:
             return start_state.repeat(num_steps + 1, 1)
 
+    # def get_const_vel_covariance(
+    #     self,
+    #     dt,
+    #     K_s_inv,
+    #     K_gp_inv,
+    #     K_g_inv,
+    #     precision_matrix=True,
+    # ):
+    #     # Transition matrix
+    #     Phi = torch.eye(self.state_dim, **self.tensor_args)
+    #     Phi[:self.dof, self.dof:] = torch.eye(self.dof, **self.tensor_args) * dt
+    #     diag_Phis = Phi
+    #     for _ in range(self.num_steps - 1):
+    #         diag_Phis = torch.block_diag(diag_Phis, Phi)
+    #
+    #     A = torch.eye(self.M, **self.tensor_args)
+    #     A[self.state_dim:, :-self.state_dim] += -1. * diag_Phis
+    #     if self.goal_directed:
+    #         b = torch.zeros(self.state_dim, self.M,  **self.tensor_args)
+    #         b[:, -self.state_dim:] = torch.eye(self.state_dim,  **self.tensor_args)
+    #         A = torch.cat((A, b))
+    #
+    #     Q_inv = K_s_inv
+    #     for _ in range(self.num_steps):
+    #         Q_inv = torch.block_diag(Q_inv, K_gp_inv).to(**self.tensor_args)
+    #     if self.goal_directed:
+    #         Q_inv = torch.block_diag(Q_inv, K_g_inv).to(**self.tensor_args)
+    #
+    #     K_inv = A.t() @ Q_inv @ A
+    #     if precision_matrix:
+    #         return K_inv
+    #     else:
+    #         return torch.inverse(K_inv)
+
+
     def get_const_vel_covariance(
         self,
         dt,
@@ -175,31 +210,37 @@ class MultiMPPrior:
         K_g_inv,
         precision_matrix=True,
     ):
+        # To construct the covariance we need to use float64, because the small covariances of the start, GP and goal
+        # state distributions lead to very large inverse covariances during the construction of these matrices.
+
+        tensor_args_tmp = copy(self.tensor_args)
+        tensor_args_tmp['dtype'] = torch.float64
+
         # Transition matrix
-        Phi = torch.eye(self.state_dim, **self.tensor_args)
-        Phi[:self.dof, self.dof:] = torch.eye(self.dof, **self.tensor_args) * dt
+        Phi = torch.eye(self.state_dim, **tensor_args_tmp)
+        Phi[:self.dof, self.dof:] = torch.eye(self.dof, **tensor_args_tmp) * dt
         diag_Phis = Phi
         for _ in range(self.num_steps - 1):
             diag_Phis = torch.block_diag(diag_Phis, Phi)
 
-        A = torch.eye(self.M, **self.tensor_args)
+        A = torch.eye(self.M, **tensor_args_tmp)
         A[self.state_dim:, :-self.state_dim] += -1. * diag_Phis
         if self.goal_directed:
-            b = torch.zeros(self.state_dim, self.M,  **self.tensor_args)
-            b[:, -self.state_dim:] = torch.eye(self.state_dim,  **self.tensor_args)
+            b = torch.zeros(self.state_dim, self.M,  **tensor_args_tmp)
+            b[:, -self.state_dim:] = torch.eye(self.state_dim,  **tensor_args_tmp)
             A = torch.cat((A, b))
 
         Q_inv = K_s_inv
         for _ in range(self.num_steps):
-            Q_inv = torch.block_diag(Q_inv, K_gp_inv).to(**self.tensor_args)
+            Q_inv = torch.block_diag(Q_inv, K_gp_inv).to(**tensor_args_tmp)
         if self.goal_directed:
-            Q_inv = torch.block_diag(Q_inv, K_g_inv).to(**self.tensor_args)
+            Q_inv = torch.block_diag(Q_inv, K_g_inv).to(**tensor_args_tmp)
 
         K_inv = A.t() @ Q_inv @ A
         if precision_matrix:
-            return K_inv
+            return K_inv.to(**self.tensor_args)
         else:
-            return torch.inverse(K_inv)
+            return torch.inverse(K_inv).to(**self.tensor_args)
 
     def sample(self, num_samples):
         return self.dist.sample((num_samples,)).view(

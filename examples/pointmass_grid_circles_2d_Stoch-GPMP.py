@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
 from mp_baselines.planners.stoch_gpmp import StochGPMP
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
@@ -23,7 +22,7 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvGridCircles2D(

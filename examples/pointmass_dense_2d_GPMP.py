@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Planner ---------------------------------
     start_state = torch.tensor([-0.8, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.95, 0.9], **tensor_args)
+    goal_state = torch.tensor([0.25, 0.9], **tensor_args)
 
     # Construct planner
     traj_len = 64
@@ -56,7 +56,6 @@ if __name__ == "__main__":
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params()
-    default_params_env['opt_iters'] = 500
 
     planner_params = dict(
         **default_params_env,

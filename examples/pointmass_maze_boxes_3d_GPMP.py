@@ -24,7 +24,7 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvMazeBoxes3D(

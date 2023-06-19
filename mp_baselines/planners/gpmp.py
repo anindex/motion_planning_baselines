@@ -261,27 +261,18 @@ class GPMP(OptimizationPlanner):
             particle_means=None,
             goal_states=None,
     ):
-        # TODO - fix the float32 vs float64 initialization instead of casting and recasting.
-        #  One idea is to specify the log covariances and sum them instead of multiplying them
-        #  in MultiMPPrior.get_const_vel_covariance().
-        # This is only a quick fix that works in practice.
-        # To construct the initial sampling distribution we need to use float64.
-        # The small covariances of the start, GP and goal state distributions lead to very large inverse covariances
-        # during the construction of these matrices.
-        tensor_args = copy(self.tensor_args)
-        tensor_args['dtype'] = torch.float64
         return MultiMPPrior(
             self.traj_len - 1,
             self.dt,
             2 * self.n_dof,
             self.n_dof,
-            start_K.to(torch.float64),
-            gp_K.to(torch.float64),
-            state_init.to(torch.float64),
-            K_g_inv=goal_K.to(torch.float64),  # Assume same goal Cov. for now
-            means=particle_means.to(torch.float64) if particle_means is not None else particle_means,
-            goal_states=goal_states.to(torch.float64) if goal_states is not None else goal_states,
-            tensor_args=tensor_args,
+            start_K,
+            gp_K,
+            state_init,
+            K_g_inv=goal_K,  # Assume same goal Cov. for now
+            means=particle_means,
+            goal_states=goal_states,
+            tensor_args=self.tensor_args
         )
 
     def optimize(
