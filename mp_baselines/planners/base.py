@@ -18,11 +18,6 @@ class MPPlanner(ABC):
         **kwargs
     ):
         self.name = name
-        if tensor_args is None:
-            tensor_args = {
-                'device': torch.device('cpu'),
-                'dtype': torch.float32,
-            }
         self.tensor_args = tensor_args
         self._kwargs = kwargs
 

@@ -1,4 +1,6 @@
 # Adapted from https://github.com/anindex/stoch_gpmp
+from copy import copy
+
 import einops
 import numpy as np
 import torch
@@ -164,6 +166,35 @@ class GPMP(OptimizationPlanner):
         # Initialize particles
         self.reset(initial_particle_means=initial_particle_means)
 
+    def reset(
+            self,
+            start_state=None,
+            multi_goal_states=None,
+            initial_particle_means=None,
+    ):
+        if start_state is not None:
+            self.start_state = start_state.clone()
+
+        if multi_goal_states is not None:
+            self.multi_goal_states = multi_goal_states.clone()
+
+        self.set_prior_factors()
+
+        # Initialization particles from prior distribution
+        if initial_particle_means is not None:
+            self._particle_means = initial_particle_means
+        else:
+            self._init_dist = self.get_dist(
+                self.start_prior_init.K,
+                self.gp_prior_init.Q_inv[0],
+                self.multi_goal_prior_init[0].K if self.goal_directed else None,
+                self.start_state,
+                goal_states=self.multi_goal_states,
+            )
+            self._particle_means = self._init_dist.sample(self.num_particles_per_goal).to(**self.tensor_args)
+            del self._init_dist  # freeing memory
+        self._particle_means = self._particle_means.flatten(0, 1)
+
     def set_prior_factors(self):
         #========= Initialization factors ===============
         self.start_prior_init = UnaryFactor(
@@ -230,57 +261,27 @@ class GPMP(OptimizationPlanner):
             particle_means=None,
             goal_states=None,
     ):
-
+        # TODO - fix the float32 vs float64 initialization instead of casting and recasting.
+        #  One idea is to specify the log covariances and sum them instead of multiplying them
+        #  in MultiMPPrior.get_const_vel_covariance().
+        # This is only a quick fix that works in practice.
+        # To construct the initial sampling distribution we need to use float64.
+        # The small covariances of the start, GP and goal state distributions lead to very large inverse covariances
+        # during the construction of these matrices.
+        tensor_args = copy(self.tensor_args)
+        tensor_args['dtype'] = torch.float64
         return MultiMPPrior(
             self.traj_len - 1,
             self.dt,
             2 * self.n_dof,
             self.n_dof,
-            start_K,
-            gp_K,
-            state_init,
-            K_g_inv=goal_K,  # Assume same goal Cov. for now
-            means=particle_means,
-            goal_states=goal_states,
-            tensor_args=self.tensor_args,
-        )
-
-    def reset(
-            self,
-            start_state=None,
-            multi_goal_states=None,
-            initial_particle_means=None,
-    ):
-
-        if start_state is not None:
-            self.start_state = start_state.clone()
-
-        if multi_goal_states is not None:
-            self.multi_goal_states = multi_goal_states.clone()
-
-        self.set_prior_factors()
-
-        # Initialization particles from prior distribution
-        if initial_particle_means is not None:
-            self._particle_means = initial_particle_means
-        else:
-            self._init_dist = self.get_dist(
-                self.start_prior_init.K,
-                self.gp_prior_init.Q_inv[0],
-                self.multi_goal_prior_init[0].K if self.goal_directed else None,
-                self.start_state,
-                goal_states=self.multi_goal_states,
-            )
-            self._particle_means = self._init_dist.sample(self.num_particles_per_goal).to(**self.tensor_args)
-            del self._init_dist  # freeing memory
-        self._particle_means = self._particle_means.flatten(0, 1)
-
-        self._sample_dist = self.get_dist(
-            self.start_prior_sample.K,
-            self.gp_prior_sample.Q_inv[0],
-            self.multi_goal_prior_sample[0].K if self.goal_directed else None,
-            self.start_state,
-            particle_means=self._particle_means,
+            start_K.to(torch.float64),
+            gp_K.to(torch.float64),
+            state_init.to(torch.float64),
+            K_g_inv=goal_K.to(torch.float64),  # Assume same goal Cov. for now
+            means=particle_means.to(torch.float64) if particle_means is not None else particle_means,
+            goal_states=goal_states.to(torch.float64) if goal_states is not None else goal_states,
+            tensor_args=tensor_args,
         )
 
     def optimize(
@@ -311,16 +312,6 @@ class GPMP(OptimizationPlanner):
     def _step(self, **observation):
         A, b, K = self.cost.get_linear_system(self._particle_means, **observation)
 
-        # TODO - remove cast one float32 is fixed
-        cast_to_float32 = self.solver_params.get('cast_to_float32', True)
-        if cast_to_float32:
-            # Convert to float32
-            # We found that for dense tensors matrix multiplication in float32 is much faster than float64
-            # For sparse tensors this does not seem to make a difference
-            A = A.to(torch.float32)
-            b = b.to(torch.float32)
-            K = K.to(torch.float32)
-
         J_t_J, g = self._get_grad_terms(
             A, b, K,
             delta=self.solver_params['delta'],
@@ -340,11 +331,6 @@ class GPMP(OptimizationPlanner):
                 self.d_state_opt,
             )
 
-        if cast_to_float32:
-            d_theta = d_theta.to(self.tensor_args['dtype'])
-            b = b.to(self.tensor_args['dtype'])
-            K = K.to(self.tensor_args['dtype'])
-
         self._particle_means = self._particle_means + self.step_size * d_theta
         self._particle_means.detach_()
 
@@ -354,7 +340,6 @@ class GPMP(OptimizationPlanner):
             self,
             A, b, K,
             delta=0.,
-            cast_to_float32=False,
             trust_region=False,
             sparse_computation=False,
             sparse_computation_block_diag=False

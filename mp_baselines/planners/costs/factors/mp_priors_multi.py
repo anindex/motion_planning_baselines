@@ -10,8 +10,6 @@ __license__ = "MIT"
 import torch
 import torch.distributions as dist
 
-from torch_robotics.torch_utils.torch_utils import is_psd
-
 
 class MultiMPPrior:
 
@@ -85,7 +83,7 @@ class MultiMPPrior:
         # Flatten mean trajectories
         self.means = means.reshape(self.num_modes, -1)
 
-        # TODO: Add different goal Covariances
+        # TODO - Add different goal Covariances
         # Assume same goal Cov. for now
         Sigma_inv = self.get_const_vel_covariance(
             dt,
@@ -94,7 +92,6 @@ class MultiMPPrior:
             K_g_inv,
         )
 
-        # assert is_psd(Sigma_inv), "The precision matrix must be PSD"
         self.Sigma_inv = Sigma_inv
         # self.Sigma_inv = Sigma_inv + torch.eye(Sigma_inv.shape[0], **tensor_args) * 1.e-3
         self.Sigma_invs = self.Sigma_inv.repeat(self.num_modes, 1, 1)

@@ -24,7 +24,7 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float64}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvDense2D(
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # -------------------------------- Planner ---------------------------------
     start_state = torch.tensor([-0.8, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.9, 0.8], **tensor_args)
+    goal_state = torch.tensor([0.95, 0.9], **tensor_args)
 
     # Construct planner
     traj_len = 64

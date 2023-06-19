@@ -15,7 +15,7 @@ class GPFactor:
         self.dim = dim
         self.d_t = d_t
         self.tensor_args = tensor_args
-        self.state_dim = self.dim * 2 # position and velocity
+        self.state_dim = self.dim * 2  # position and velocity
         self.num_factors = num_factors
         self.idx1 = torch.arange(0, self.num_factors, device=tensor_args['device'])
         self.idx2 = torch.arange(1, self.num_factors+1, device=tensor_args['device'])
@@ -46,7 +46,7 @@ class GPFactor:
 
         Q_inv_u = torch.cat((m1, m2), dim=-1)
         Q_inv_l = torch.cat((m2, m3), dim=-1)
-        Q_inv  = torch.cat((Q_inv_u, Q_inv_l), dim=-2)
+        Q_inv = torch.cat((Q_inv_u, Q_inv_l), dim=-2)
         return Q_inv
 
     def get_error(self, x_traj, calc_jacobian=True):
