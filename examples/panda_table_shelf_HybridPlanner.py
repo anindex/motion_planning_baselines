@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
+from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.robot_panda import RobotPanda
@@ -20,11 +21,11 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 1
+    seed = 10
     fix_random_seed(seed)
 
     device = get_torch_device()
-    tensor_args = {'device': device, 'dtype': torch.float16}
+    tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
     env = EnvTableShelf(
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.5, 0.75, -0.25], [1.25, -0.5, 1.5]], **tensor_args),  # workspace limits
+        # ws_limits=torch.tensor([[-0.5, 0.75, -0.25], [1.25, -0.5, 1.5]], **tensor_args),  # workspace limits
         obstacle_buffer=0.05,
         tensor_args=tensor_args
     )
@@ -48,19 +49,17 @@ if __name__ == "__main__":
     # start_state = q_free[0]
     # goal_state = q_free[1]
     #
-    # for _ in range(100):
-    #     q_free = task.random_coll_free_q(n_samples=2)
-    #     start_state = q_free[0]
-    #     goal_state = q_free[1]
-    #     if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
-    #         break
-    #
-    # print(start_state)
-    # print(goal_state)
+    for _ in range(100):
+        q_free = task.random_coll_free_q(n_samples=2)
+        start_state = q_free[0]
+        goal_state = q_free[1]
+        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
+            break
 
-    start_state = torch.tensor([-2.2248, -0.6046,  1.7909, -1.5844, -0.4575,  3.6484, -1.4562], **tensor_args)
-    goal_state = torch.tensor([0.1927,  1.2406, -0.4233, -1.6301, -2.7528,  2.5637, -0.7582], **tensor_args)
+    print(start_state)
+    print(goal_state)
 
+    n_trajectories = 10
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -72,12 +71,17 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    sample_based_planner = RRTConnect(**rrt_connect_params)
+    sample_based_planner_base = RRTConnect(**rrt_connect_params)
+    sample_based_planner = MultiSampleBasedPlanner(
+        sample_based_planner_base,
+        n_trajectories=n_trajectories,
+        max_processes=8,
+        optimize_sequentially=True
+    )
 
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 1
 
     gpmp_default_params_env = env.get_gpmp_params()
 
@@ -87,14 +91,14 @@ if __name__ == "__main__":
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
-        num_particles_per_goal=num_particles_per_goal,
+        num_particles_per_goal=n_trajectories,
         dt=dt,
         start_state=start_state,
         multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner_params['opt_iters']=10
+    planner_params['opt_iters'] = 10
     opt_based_planner = GPMP(**planner_params)
 
     ############### Hybrid planner

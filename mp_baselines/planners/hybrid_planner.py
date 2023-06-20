@@ -33,23 +33,10 @@ class HybridPlanner(MPPlanner):
     def optimize(self, debug=False, return_iterations=False, **kwargs):
         with Timer() as t_hybrid:
             #################################################
-            # Get initial position solution with a sample-based planner
-            # Optimize
-            traj_l = []
+            # Get initial position solutions with a sample-based planner
+            # Optimize in parallel
             with Timer() as t_sample_based:
-                for _ in range(self.opt_based_planner.num_particles_per_goal):
-                    with Timer() as t_sample_based_instance:
-                        traj = self.sample_based_planner.optimize(refill_samples_buffer=True, debug=debug, **kwargs)
-                    if debug:
-                        print(f'Sample-based Planner Instance -- Optimization time: {t_sample_based_instance.elapsed:.3f} sec')
-                    # If no solution was found, create a linear interpolated trajectory between start and finish, even
-                    # if is not collision-free
-                    if traj is None:
-                        traj = tensor_linspace_v1(
-                            self.sample_based_planner.start_state, self.sample_based_planner.goal_state,
-                            steps=self.opt_based_planner.traj_len
-                        ).T
-                    traj_l.append(traj)
+                traj_l = self.sample_based_planner.optimize(refill_samples_buffer=True, debug=debug, **kwargs)
             if debug:
                 print(f'Sample-based Planner -- Optimization time: {t_sample_based.elapsed:.3f} sec')
 
@@ -57,6 +44,12 @@ class HybridPlanner(MPPlanner):
             # Interpolate initial trajectory to desired trajectory length, smooth and set average velocity
             traj_pos_vel_l = []
             for traj in traj_l:
+                # If no solution was found, create a linear interpolated trajectory between start and finish, even
+                # if is not collision-free
+                if traj is None:
+                    traj = tensor_linspace_v1(
+                        self.sample_based_planner.start_state, self.sample_based_planner.goal_state,
+                        steps=self.opt_based_planner.traj_len).T
                 traj_pos, traj_vel = smoothen_trajectory(
                     traj, traj_len=self.opt_based_planner.traj_len, dt=self.opt_based_planner.dt,
                     set_average_velocity=True, tensor_args=self.tensor_args
@@ -67,7 +60,7 @@ class HybridPlanner(MPPlanner):
                 traj_pos_vel_l.append(initial_traj_pos_vel)
 
             initial_traj_pos_vel = torch.stack(traj_pos_vel_l)
-            # TODO - now only accepts 1 goal
+            # TODO - now it only accepts 1 goal
             initial_traj_pos_vel = einops.rearrange(initial_traj_pos_vel, 'n h d -> 1 n h d')
 
             #################################################

@@ -7,6 +7,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
+from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_dense_2d import EnvDense2D
@@ -28,17 +29,17 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    # env = EnvDense2D(
-    #     precompute_sdf_obj_fixed=True,
-    #     sdf_cell_size=0.005,
-    #     tensor_args=tensor_args
-    # )
-
-    env = EnvDense2DExtraObjects(
+    env = EnvDense2D(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.005,
         tensor_args=tensor_args
     )
+
+    # env = EnvDense2DExtraObjects(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
 
     robot = RobotPointMass(
         q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
@@ -65,7 +66,10 @@ if __name__ == "__main__":
     #         break
 
     start_state = torch.tensor([-0.9, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.25, 0.9], **tensor_args)
+    # goal_state = torch.tensor([0.25, 0.9], **tensor_args)
+    goal_state = torch.tensor([-0.9, 0.], **tensor_args)
+
+    n_trajectories = 100
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -77,13 +81,19 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    # sample_based_planner = RRTConnect(**rrt_connect_params)
-    sample_based_planner = RRTStar(**rrt_connect_params)
+    sample_based_planner_base = RRTConnect(**rrt_connect_params)
+    # sample_based_planner_base = RRTStar(**rrt_connect_params)
+    # sample_based_planner = sample_based_planner_base
+    sample_based_planner = MultiSampleBasedPlanner(
+        sample_based_planner_base,
+        n_trajectories=n_trajectories,
+        max_processes=8,
+        optimize_sequentially=False
+    )
 
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 5
 
     gpmp_default_params_env = env.get_gpmp_params()
     gpmp_default_params_env['opt_iters'] = 150
@@ -94,7 +104,7 @@ if __name__ == "__main__":
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
-        num_particles_per_goal=num_particles_per_goal,
+        num_particles_per_goal=n_trajectories,
         dt=dt,
         start_state=start_state,
         multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,

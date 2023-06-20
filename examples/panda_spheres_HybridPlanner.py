@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
+from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
 from torch_robotics.robot.robot_panda import RobotPanda
@@ -46,6 +47,8 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
+    n_trajectories = 10
+
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
 
@@ -56,12 +59,17 @@ if __name__ == "__main__":
         goal_state=goal_state,
         tensor_args=tensor_args,
     )
-    sample_based_planner = RRTConnect(**rrt_connect_params)
+    sample_based_planner_base = RRTConnect(**rrt_connect_params)
+    sample_based_planner = MultiSampleBasedPlanner(
+        sample_based_planner_base,
+        n_trajectories=n_trajectories,
+        max_processes=8,
+        optimize_sequentially=True
+    )
 
     ############### Optimization-based planner
     traj_len = 64
     dt = 0.02
-    num_particles_per_goal = 5
 
     gpmp_default_params_env = env.get_gpmp_params()
 
@@ -71,7 +79,7 @@ if __name__ == "__main__":
         robot=robot,
         n_dof=robot.q_dim,
         traj_len=traj_len,
-        num_particles_per_goal=num_particles_per_goal,
+        num_particles_per_goal=n_trajectories,
         dt=dt,
         start_state=start_state,
         multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
