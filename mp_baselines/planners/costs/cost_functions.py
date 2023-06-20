@@ -421,3 +421,76 @@ class CostGoalPrior(Cost):
                 K[i*npg: (i+1)*npg] = self.multi_goal_prior[i].K
 
         return A, b, K
+
+
+class CostGPMPOT(Cost):
+
+    def __init__(
+        self,
+        robot,
+        traj_len,
+        start_state,
+        dt,
+        sigma_gp,
+        probe_range,
+        weight=1.,
+        **kwargs
+    ):
+        super().__init__(robot, traj_len, **kwargs)
+        self.start_state = start_state
+        self.dt = dt
+        self.sigma_gp = sigma_gp
+
+        self.probe_range = probe_range
+        self.weight = weight
+
+        self.set_cost_factors()
+
+        self.single_Q_inv = self.gp_prior.Q_inv[[0]]
+        self.phi_T = self.gp_prior.phi.T
+
+    def set_cost_factors(self):
+        #========= Cost factors ===============
+        self.gp_prior = GPFactor(
+            self.n_dof,
+            self.sigma_gp,
+            self.dt,
+            self.traj_len - 1,
+            self.tensor_args,
+        )
+
+    def cost(self, trajs, **observation):
+        traj_dim = observation.get('traj_dim', None)
+        trajs = trajs.view(traj_dim)  # [..., traj_len, n_dof]
+        errors = (trajs[..., 1:, :] - trajs[..., :-1, :] @ self.phi_T) * self.weight  # [..., traj_len-1, n_dof * 2]
+        costs = torch.einsum('...ij,...ijk,...ik->...i', errors, self.single_Q_inv, errors)  # [..., traj_len-1]
+        return costs.mean(dim=-1)  # mean the traj_len
+
+    def eval(self, trajs, **observation):
+        traj_dim = observation.get('traj_dim', None)
+        current_trajs = observation.get('current_trajs', None)
+        current_trajs = current_trajs.view(traj_dim)  # [..., traj_len, n_dof]
+        current_trajs = current_trajs.unsqueeze(-2).unsqueeze(-2)  # [..., traj_len, 1, 1, n_dof]
+
+        cost_dim = traj_dim[:-1] + trajs.shape[1:3]  # [..., traj_len] + [nb2, num_probe]
+        costs = torch.zeros(cost_dim, **self.tensor_args)
+        probe_points = trajs[..., self.probe_range[0]:self.probe_range[1], :]  # [..., nb2, num_eval, n_dof * 2]
+        print(traj_dim)
+        print(trajs.shape)
+        print(probe_points.shape)
+        len_probe = probe_points.shape[-2]
+        probe_points = probe_points.view(traj_dim[:-1] + (trajs.shape[1], len_probe, self.dim,))  # [..., traj_len] + [nb2, num_eval, n_dof * 2]
+        right_errors = probe_points[..., 1:self.traj_len, :, :, :] - current_trajs[..., 0:self.traj_len-1, :, :, :] @ self.phi_T # [..., traj_len-1, nb2, num_eval, n_dof * 2]
+        left_errors = current_trajs[..., 1:self.traj_len, :, :, :] - probe_points[..., 0:self.traj_len-1, :, :, :] @ self.phi_T # [..., traj_len-1, nb2, num_eval, n_dof * 2]
+        # mahalanobis distance
+        left_cost_dist = torch.einsum('...ij,...ijk,...ik->...i', left_errors, self.single_Q_inv, left_errors) * (self.weight / 2)  # [..., traj_len-1, nb2, num_eval]
+        right_cost_dist = torch.einsum('...ij,...ijk,...ik->...i', right_errors, self.single_Q_inv, right_errors) * (self.weight / 2)  # [..., traj_len-1, nb2, num_eval]
+        # cost_dist = scale_cost_matrix(cost_dist)
+        # cost_dist = torch.sqrt(cost_dist)
+        costs[..., 0:self.traj_len-1, :, self.probe_range[0]:self.probe_range[1]] += left_cost_dist
+        costs[..., 1:self.traj_len, :, self.probe_range[0]:self.probe_range[1]] += right_cost_dist
+
+        return costs.view((-1,) + trajs.shape[1:3])
+
+    def get_linear_system(self, trajs, **observation):
+        pass
