@@ -65,7 +65,8 @@ def sinkhorn_step(step_dist, step_weights, X, cost, step_radius, probe_radius, b
         probe_points = get_projecting_points(X, step_points, probe_step_size, num_probe)
 
     # compute cost matrix
-    M = cost.eval(probe_points, current_trajs=X, **kwargs)
+    kwargs['num_vertices'] = probe_points.shape[1]
+    M = cost.eval(probe_points, current_trajs=X, **kwargs).mean(-1)  # mean the probe dimension
     M = scale_cost_matrix(M)  # for numerical stability
     # perform sinkhorn-knopp
     T, log_dict = sinkhorn_knopp_stabilized(beta, step_weights, M, reg, numItermax=numItermax, stopThr=innerStopThr, verbose=verbose, log=False, **kwargs)

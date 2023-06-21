@@ -468,16 +468,15 @@ class CostGPMPOT(Cost):
 
     def eval(self, trajs, **observation):
         traj_dim = observation.get('traj_dim', None)
+        num_vertices = observation.get('num_vertices', None)
         current_trajs = observation.get('current_trajs', None)
         current_trajs = current_trajs.view(traj_dim)  # [..., traj_len, n_dof]
         current_trajs = current_trajs.unsqueeze(-2).unsqueeze(-2)  # [..., traj_len, 1, 1, n_dof]
+        trajs = trajs.reshape((-1, num_vertices) + trajs.shape[-2:])
 
         cost_dim = traj_dim[:-1] + trajs.shape[1:3]  # [..., traj_len] + [nb2, num_probe]
         costs = torch.zeros(cost_dim, **self.tensor_args)
         probe_points = trajs[..., self.probe_range[0]:self.probe_range[1], :]  # [..., nb2, num_eval, n_dof * 2]
-        print(traj_dim)
-        print(trajs.shape)
-        print(probe_points.shape)
         len_probe = probe_points.shape[-2]
         probe_points = probe_points.view(traj_dim[:-1] + (trajs.shape[1], len_probe, self.dim,))  # [..., traj_len] + [nb2, num_eval, n_dof * 2]
         right_errors = probe_points[..., 1:self.traj_len, :, :, :] - current_trajs[..., 0:self.traj_len-1, :, :, :] @ self.phi_T # [..., traj_len-1, nb2, num_eval, n_dof * 2]
@@ -491,6 +490,43 @@ class CostGPMPOT(Cost):
         costs[..., 1:self.traj_len, :, self.probe_range[0]:self.probe_range[1]] += right_cost_dist
 
         return costs.view((-1,) + trajs.shape[1:3])
+
+    def get_linear_system(self, trajs, **observation):
+        pass
+
+
+class CostCollisionMPOT(Cost):
+
+    def __init__(
+        self,
+        robot,
+        traj_range,
+        field=None,
+        weight=1.,
+        **kwargs
+    ):
+        traj_len = traj_range[1] - traj_range[0]
+        super().__init__(robot, traj_len, **kwargs)
+        self.traj_range = traj_range
+        self.field = field
+        self.weight = weight
+
+    def eval(self, trajs, q_pos=None, q_vel=None, H=None, **observation):
+        if self.field is None:
+            return 0
+        traj_dim = observation.get('traj_dim', None)
+        num_vertices = observation.get('num_vertices', None)
+        trajs = trajs.reshape((-1, num_vertices) + trajs.shape[-2:])
+        optim_dim = trajs.shape
+        cost_dim = traj_dim[:-1] + optim_dim[1:3]  # [..., traj_len] + [nb2, num_probe]
+        costs = torch.zeros(cost_dim, **self.tensor_args)
+        trajs = trajs.view(cost_dim + traj_dim[-1:])  # [..., traj_len] + [nb2, num_probe, n_dof]
+        # TODO: since now H is always computed and not None for pointmass robot, this needs to be adapted for MPOT
+        states = trajs[..., self.traj_range[0]:self.traj_range[1], :, :, :self.n_dof]  # if H is None else H[..., self.traj_range[0]:self.traj_range[1], :, :, :, :, :]
+        field_cost = self.field.compute_cost(states.reshape(-1, self.n_dof), **observation).view(cost_dim[:-3] + (self.traj_len, ) + cost_dim[-2:]) * self.weight
+        costs[..., self.traj_range[0]:self.traj_range[1], :, :] = field_cost
+
+        return costs.view((-1,) + optim_dim[1:3])
 
     def get_linear_system(self, trajs, **observation):
         pass

@@ -11,7 +11,7 @@ from mp_baselines.planners.utils.misc import MinMaxCenterScaler
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
-from mp_baselines.planners.costs.cost_functions import CostGPMPOT, CostGoalPrior, CostCollision, CostComposite
+from mp_baselines.planners.costs.cost_functions import CostGPMPOT, CostGoalPrior, CostCollisionMPOT, CostComposite
 
 try:
     import cholespy
@@ -31,9 +31,9 @@ def build_mpot_cost_composite(
     collision_fields=None,
     extra_costs=[],
     sigma_gp=1e-2,
-    sigma_coll=1e-5,
     sigma_goal_prior=1e-5,
     w_smooth=1e-7,
+    w_coll=2.4e-3,
     probe_range=[0, 1],
     tensor_args=None,
     **kwargs,
@@ -68,10 +68,10 @@ def build_mpot_cost_composite(
 
     # Collision costs
     for collision_field in collision_fields:
-        cost_collision = CostCollision(
-            robot, traj_len,
+        cost_collision = CostCollisionMPOT(
+            robot, [0, traj_len],
             field=collision_field,
-            sigma_coll=sigma_coll,
+            w_coll=w_coll,
             tensor_args=tensor_args
         )
         cost_func_list.append(cost_collision)
