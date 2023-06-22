@@ -35,8 +35,8 @@ class MultiSampleBasedPlanner:
 
     @property
     def start_state(self):
-        return self.planners_l[0].start_state
+        return self.planner.start_state
 
     @property
     def goal_state(self):
-        return self.planners_l[0].goal_state
+        return self.planner.goal_state

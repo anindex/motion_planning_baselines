@@ -20,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 3
+    seed = 10
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
-    n_trajectories = 10
+    n_trajectories = 5
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()

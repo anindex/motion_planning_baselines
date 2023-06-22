@@ -7,6 +7,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -18,7 +19,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 13
+    seed = 100
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -44,6 +45,9 @@ if __name__ == "__main__":
     q_free = task.random_coll_free_q(n_samples=2)
     start_state = q_free[0]
     goal_state = q_free[1]
+
+    # start_state = torch.tensor([1.0403,  0.0493,  0.0251, -1.2673,  1.6676,  3.3611, -1.5428], **tensor_args)
+    # goal_state = torch.tensor([1.1142,  1.7289, -0.1771, -0.9284,  2.7171,  1.2497,  1.7724], **tensor_args)
 
     # Construct planner
     traj_len = 64

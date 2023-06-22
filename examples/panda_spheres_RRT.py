@@ -22,7 +22,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 10
+    seed = 25
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -48,6 +48,9 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
+    print(start_state)
+    print(goal_state)
+
     if planner == 'rrt-connect':
         rrt_connect_default_params = env.get_rrt_connect_params()
         rrt_connect_params = dict(
@@ -61,7 +64,7 @@ if __name__ == "__main__":
     elif planner == 'rrt-star':
         n_iters = 30000
         step_size = torch.pi / 80
-        n_radius = torch.pi / 4
+        n_radius = torch.pi / 6
         max_time = 120
 
         max_best_cost_iters = 2000
