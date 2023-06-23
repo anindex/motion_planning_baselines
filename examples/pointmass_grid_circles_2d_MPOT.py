@@ -45,8 +45,8 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.9, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.9, 0.9], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
 
     # Construct planner
     traj_len = 64
@@ -81,6 +81,7 @@ if __name__ == "__main__":
     )
     trajs_iters = log_dict['X_hist']
     elapsed_iters = len(trajs_iters)
+    print(f'Elapsed optim iters: {elapsed_iters}')
     trajs_iters = torch.stack(trajs_iters, dim=0).reshape(elapsed_iters, -1, traj_len, planner.d_state_opt)
 
     print(f'----------------STATISTICS----------------')
@@ -124,7 +125,7 @@ if __name__ == "__main__":
     planner_visualizer.animate_opt_iters_robots(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
         video_filepath=f'{base_file_name}-traj-opt-iters.mp4',
-        n_frames=max((2, elapsed_iters // 10)),
+        n_frames=elapsed_iters,
         anim_time=5
     )
 
