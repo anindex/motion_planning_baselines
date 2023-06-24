@@ -19,7 +19,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 100
+    seed = 0
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     dt = 0.02
     num_particles_per_goal = 10
 
-    default_params_env = env.get_gpmp_params()
+    default_params_env = env.get_gpmp_params(robot_name=robot.name)
 
     planner_params = dict(
         **default_params_env,
