@@ -15,7 +15,7 @@ from torch_robotics.environment.utils import create_grid_spheres
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         raise NotImplementedError
 
     # Optimize in parallel
-    with Timer() as t:
+    with TimerCUDA() as t:
         sample_based_planner = MultiSampleBasedPlanner(
             planner,
             n_trajectories=n_trajectories,
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     print(f'Optimization time MultiProcessing: {t.elapsed:.3f} sec')
 
     # Optimize sequentially
-    with Timer() as t:
+    with TimerCUDA() as t:
         sample_based_planner = MultiSampleBasedPlanner(
             planner,
             n_trajectories=n_trajectories,

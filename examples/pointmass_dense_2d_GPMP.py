@@ -10,10 +10,11 @@ from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_dense_2d_extra_objects import EnvDense2DExtraObjects
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
+from torch_robotics.environment.env_narrow_passage_dense_2d import EnvNarrowPassageDense2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -34,7 +35,13 @@ if __name__ == "__main__":
     #     tensor_args=tensor_args
     # )
 
-    env = EnvDense2DExtraObjects(
+    # env = EnvDense2DExtraObjects(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    env = EnvNarrowPassageDense2D(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.005,
         tensor_args=tensor_args
@@ -83,7 +90,7 @@ if __name__ == "__main__":
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
-    with Timer() as t:
+    with TimerCUDA() as t:
         for i in range(opt_iters):
             trajs = planner.optimize(opt_iters=1, debug=True)
             trajs_iters[i+1] = trajs

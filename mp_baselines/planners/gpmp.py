@@ -16,7 +16,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 
 
 def build_gpmp_cost_composite(
@@ -107,7 +107,6 @@ class GPMP(OptimizationPlanner):
             sigma_goal_init=None,
             sigma_goal_sample=None,
             sigma_gp_init=None,
-            sigma_gp_sample=None,
             solver_params=None,
             **kwargs
     ):
@@ -140,7 +139,6 @@ class GPMP(OptimizationPlanner):
         self.step_size = step_size
         self.sigma_start_sample = sigma_start_sample
         self.sigma_goal_sample = sigma_goal_sample
-        self.sigma_gp_sample = sigma_gp_sample
 
         self.solver_params = solver_params
 
@@ -229,14 +227,6 @@ class GPMP(OptimizationPlanner):
             self.d_state_opt,
             self.sigma_start_sample,
             self.start_state,
-            self.tensor_args,
-        )
-
-        self.gp_prior_sample = GPFactor(
-            self.n_dof,
-            self.sigma_gp_sample,
-            self.dt,
-            self.traj_len - 1,
             self.tensor_args,
         )
 

@@ -11,7 +11,7 @@ from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3D
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -42,9 +42,17 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    q_free = task.random_coll_free_q(n_samples=2)
-    start_state = q_free[0]
-    goal_state = q_free[1]
+    for _ in range(100):
+        q_free = task.random_coll_free_q(n_samples=2)
+        start_state = q_free[0]
+        goal_state = q_free[1]
+
+        # check if the EE positions are "enough" far apart
+        start_state_ee_pos = robot.get_EE_position(start_state).squeeze()
+        goal_state_ee_pos = robot.get_EE_position(goal_state).squeeze()
+
+        if torch.linalg.norm(start_state - goal_state) > 0.5:
+            break
 
     # start_state = torch.tensor([1.0403,  0.0493,  0.0251, -1.2673,  1.6676,  3.3611, -1.5428], **tensor_args)
     # goal_state = torch.tensor([1.1142,  1.7289, -0.1771, -0.9284,  2.7171,  1.2497,  1.7724], **tensor_args)
@@ -75,7 +83,7 @@ if __name__ == "__main__":
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
-    with Timer() as t:
+    with TimerCUDA() as t:
         for i in range(opt_iters):
             trajs = planner.optimize(opt_iters=1, debug=True)
             trajs_iters[i+1] = trajs

@@ -11,7 +11,7 @@ from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
-    with Timer() as t:
+    with TimerCUDA() as t:
         for i in range(opt_iters):
             trajs = planner.optimize(debug=True)
             trajs_iters[i+1] = trajs

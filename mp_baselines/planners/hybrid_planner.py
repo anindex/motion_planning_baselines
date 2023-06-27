@@ -2,7 +2,7 @@ import einops
 import torch
 
 from mp_baselines.planners.base import MPPlanner
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import tensor_linspace_v1
 from torch_robotics.trajectory.utils import smoothen_trajectory
 
@@ -31,11 +31,11 @@ class HybridPlanner(MPPlanner):
         raise NotImplementedError
 
     def optimize(self, debug=False, return_iterations=False, **kwargs):
-        with Timer() as t_hybrid:
+        with TimerCUDA() as t_hybrid:
             #################################################
             # Get initial position solutions with a sample-based planner
             # Optimize in parallel
-            with Timer() as t_sample_based:
+            with TimerCUDA() as t_sample_based:
                 traj_l = self.sample_based_planner.optimize(refill_samples_buffer=True, debug=debug, **kwargs)
             if debug:
                 print(f'Sample-based Planner -- Optimization time: {t_sample_based.elapsed:.3f} sec')
@@ -73,7 +73,7 @@ class HybridPlanner(MPPlanner):
             trajs_0 = self.opt_based_planner.get_traj()
             trajs_iters = torch.empty((self.opt_based_planner.opt_iters + 1, *trajs_0.shape), **self.tensor_args)
             trajs_iters[0] = trajs_0
-            with Timer() as t_opt_based:
+            with TimerCUDA() as t_opt_based:
                 for i in range(self.opt_based_planner.opt_iters):
                     trajs = self.opt_based_planner.optimize(opt_iters=1, debug=debug, **kwargs)
                     trajs_iters[i + 1] = trajs

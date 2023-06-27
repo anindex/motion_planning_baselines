@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from mp_baselines.planners.base import MPPlanner
 from mp_baselines.planners.rrt_base import RRTBase
 from mp_baselines.planners.utils import safe_path, purge_duplicates_from_traj, extend_path
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 
 
 class TreeNode:
@@ -111,7 +111,7 @@ class RRTConnect(RRTBase):
 
         path = None
 
-        with Timer() as t:
+        with TimerCUDA() as t:
             while (t.elapsed < self.max_time) and (iteration < self.n_iters):
                 iteration += 1
 

@@ -1,7 +1,7 @@
 import torch
 
 from mp_baselines.planners.base import OptimizationPlanner
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import batched_weighted_dot_prod
 
 

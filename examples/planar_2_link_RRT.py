@@ -11,7 +11,7 @@ from torch_robotics.environment.env_planar2link import EnvPlanar2Link
 from torch_robotics.robot.robot_planar2link import RobotPlanar2Link
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         raise NotImplementedError
 
     # Optimize
-    with Timer() as t:
+    with TimerCUDA() as t:
         traj = planner.optimize(debug=True, refill_samples_buffer=True)
     print(f'Optimization time: {t.elapsed:.3f} sec')
 

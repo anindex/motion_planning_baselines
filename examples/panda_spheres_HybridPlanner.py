@@ -43,9 +43,17 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    q_free = task.random_coll_free_q(n_samples=2)
-    start_state = q_free[0]
-    goal_state = q_free[1]
+    for _ in range(100):
+        q_free = task.random_coll_free_q(n_samples=2)
+        start_state = q_free[0]
+        goal_state = q_free[1]
+
+        # check if the EE positions are "enough" far apart
+        start_state_ee_pos = robot.get_EE_position(start_state).squeeze()
+        goal_state_ee_pos = robot.get_EE_position(goal_state).squeeze()
+
+        if torch.linalg.norm(start_state - goal_state) > 0.5:
+            break
 
     n_trajectories = 5
 

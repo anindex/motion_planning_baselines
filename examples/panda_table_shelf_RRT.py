@@ -12,7 +12,7 @@ from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -47,12 +47,12 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    # q_free = task.random_coll_free_q(n_samples=2)
-    # start_state = q_free[0]
-    # goal_state = q_free[1]
+    q_free = task.random_coll_free_q(n_samples=2)
+    start_state = q_free[0]
+    goal_state = q_free[1]
 
-    start_state = torch.tensor([-2.2248, -0.6046,  1.7909, -1.5844, -0.4575,  3.6484, -1.4562], **tensor_args)
-    goal_state = torch.tensor([0.1927,  1.2406, -0.4233, -1.6301, -2.7528,  2.5637, -0.7582], **tensor_args)
+    # start_state = torch.tensor([-2.2248, -0.6046,  1.7909, -1.5844, -0.4575,  3.6484, -1.4562], **tensor_args)
+    # goal_state = torch.tensor([0.1927,  1.2406, -0.4233, -1.6301, -2.7528,  2.5637, -0.7582], **tensor_args)
 
 
     if planner == 'rrt-connect':
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         raise NotImplementedError
 
     # Optimize
-    with Timer() as t:
+    with TimerCUDA() as t:
         traj = planner.optimize(debug=True, refill_samples_buffer=True)
     print(f'Optimization time: {t.elapsed:.3f} sec')
 

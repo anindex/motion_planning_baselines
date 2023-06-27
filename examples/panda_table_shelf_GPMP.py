@@ -10,7 +10,7 @@ from torch_robotics.environment.env_table_shelf import EnvTableShelf
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
-from torch_robotics.torch_utils.torch_timer import Timer
+from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer
 
@@ -18,7 +18,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 110
+    seed = 130
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -44,6 +44,14 @@ if __name__ == "__main__":
     q_free = task.random_coll_free_q(n_samples=2)
     start_state = q_free[0]
     goal_state = q_free[1]
+
+    start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393],
+       device='cuda:0')
+    goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158],
+       device='cuda:0')
+
+    print(start_state)
+    print(goal_state)
 
     # Construct planner
     traj_len = 64
@@ -71,7 +79,7 @@ if __name__ == "__main__":
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
-    with Timer() as t:
+    with TimerCUDA() as t:
         for i in range(opt_iters):
             trajs = planner.optimize(opt_iters=1, debug=True)
             trajs_iters[i+1] = trajs

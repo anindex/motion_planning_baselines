@@ -21,7 +21,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 10
+    seed = 300
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -53,11 +53,23 @@ if __name__ == "__main__":
         q_free = task.random_coll_free_q(n_samples=2)
         start_state = q_free[0]
         goal_state = q_free[1]
-        if torch.linalg.norm(start_state - goal_state) > np.sqrt(7*np.pi/8):
+
+        # check if the EE positions are "enough" far apart
+        start_state_ee_pos = robot.get_EE_position(start_state).squeeze()
+        goal_state_ee_pos = robot.get_EE_position(goal_state).squeeze()
+
+        if torch.linalg.norm(start_state - goal_state) > 0.5:
             break
+
+    # start_state = torch.tensor([-0.7760, -1.0717, -2.4756, -1.4973, -2.2995, 0.7608, -1.3377],
+    #        device='cuda:0')
+    # goal_state = torch.tensor([-0.5312, -1.3097, 2.4938, -1.9871, 1.3979, 1.8733, -2.1781],
+    #        device='cuda:0')
 
     print(start_state)
     print(goal_state)
+
+
 
     n_trajectories = 10
 
@@ -98,7 +110,7 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner_params['opt_iters'] = 10
+    planner_params['opt_iters'] = 250
     opt_based_planner = GPMP(**planner_params)
 
     ############### Hybrid planner
