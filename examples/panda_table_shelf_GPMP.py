@@ -7,6 +7,8 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_table_shelf import EnvTableShelf
+from torch_robotics.environment.objects import GraspedObjectPandaBox
+from torch_robotics.environment.primitives import ObjectField, MultiBoxField
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -31,7 +33,10 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPanda(tensor_args=tensor_args)
+    robot = RobotPanda(
+        grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+        tensor_args=tensor_args
+    )
 
     task = PlanningTask(
         env=env,
