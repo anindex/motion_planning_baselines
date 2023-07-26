@@ -12,6 +12,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_dense_2d_extra_objects import EnvDense2DExtraObjects
+from torch_robotics.environment.env_narrow_passage_dense_2d import EnvNarrowPassageDense2D
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -29,17 +30,23 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
-        precompute_sdf_obj_fixed=True,
-        sdf_cell_size=0.005,
-        tensor_args=tensor_args
-    )
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
 
     # env = EnvDense2DExtraObjects(
     #     precompute_sdf_obj_fixed=True,
     #     sdf_cell_size=0.005,
     #     tensor_args=tensor_args
     # )
+
+    env = EnvNarrowPassageDense2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPointMass(
         q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
@@ -69,7 +76,7 @@ if __name__ == "__main__":
     # goal_state = torch.tensor([0.25, 0.9], **tensor_args)
     goal_state = torch.tensor([-0.9, 0.], **tensor_args)
 
-    n_trajectories = 100
+    n_trajectories = 10
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()

@@ -20,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 130
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -50,10 +50,8 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
-    start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393],
-       device='cuda:0')
-    goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158],
-       device='cuda:0')
+    start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393], device='cuda:0')
+    goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158], device='cuda:0')
 
     print(start_state)
     print(goal_state)

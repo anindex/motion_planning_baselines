@@ -11,6 +11,7 @@ from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environment.env_table_shelf import EnvTableShelf
+from torch_robotics.environment.objects import GraspedObjectPandaBox
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -34,7 +35,10 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPanda(tensor_args=tensor_args)
+    robot = RobotPanda(
+        grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+        tensor_args=tensor_args
+    )
 
     task = PlanningTask(
         env=env,
@@ -65,6 +69,9 @@ if __name__ == "__main__":
     #        device='cuda:0')
     # goal_state = torch.tensor([-0.5312, -1.3097, 2.4938, -1.9871, 1.3979, 1.8733, -2.1781],
     #        device='cuda:0')
+
+    start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393], device='cuda:0')
+    goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158], device='cuda:0')
 
     print(start_state)
     print(goal_state)
