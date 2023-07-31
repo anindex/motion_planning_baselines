@@ -1,3 +1,7 @@
+import einops
+
+from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
+
 import os
 from pathlib import Path
 
@@ -19,7 +23,9 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 0
+    base_file_name = Path(os.path.basename(__file__)).stem
+
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -38,6 +44,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.15,
         tensor_args=tensor_args
     )
 
@@ -89,7 +96,7 @@ if __name__ == "__main__":
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
-    # exit()
+    torch.save(trajs_iters, f'trajs_iters_{base_file_name}.pt')
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
@@ -101,8 +108,6 @@ if __name__ == "__main__":
     print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_iters[-1])*100:.2f}')
     print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_iters[-1])*100:.2f}')
     print(f'success {task.compute_success_free_trajs(trajs_iters[-1])}')
-
-    base_file_name = Path(os.path.basename(__file__)).stem
 
     pos_trajs_iters = robot.get_position(trajs_iters)
 
@@ -137,3 +142,46 @@ if __name__ == "__main__":
 
     plt.show()
 
+    # -------------------------------- Physics ---------------------------------
+    trajs_pos = robot.get_position(trajs_iters[-1]).movedim(1, 0)
+    trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
+
+    # POSITION CONTROL
+    # add initial and final positions multiple times
+    trajs_pos = torch.cat((einops.repeat(trajs_pos[0], 'b d -> h b d', h=100), trajs_pos))
+    trajs_pos = torch.cat((trajs_pos, einops.repeat(trajs_pos[-1], 'b d -> h b d', h=100)))
+
+    motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
+        env, robot, task,
+        controller_type='position',
+        num_envs=trajs_pos.shape[1],
+        all_robots_in_one_env=True,
+        color_robots=False,
+    )
+
+    motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
+    motion_planning_controller.run_trajectories(
+        trajs_pos,
+        start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
+        visualize=True
+    )
+
+    # VELOCITY CONTROL
+    # add initial and final velocities multiple times
+    trajs_vel = torch.cat((einops.repeat(trajs_vel[0], 'b d -> h b d', h=100), trajs_vel))
+    trajs_vel = torch.cat((trajs_vel, einops.repeat(trajs_vel[-1], 'b d -> h b d', h=100)))
+
+    motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
+        env, robot, task,
+        controller_type='velocity',
+        num_envs=trajs_pos.shape[1],
+        all_robots_in_one_env=True,
+        color_robots=False,
+    )
+
+    motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
+    motion_planning_controller.run_trajectories(
+        trajs_vel,
+        start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
+        visualize=True
+    )
