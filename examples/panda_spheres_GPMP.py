@@ -25,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 2
+    seed = 999
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.15,
+        obstacle_buffer=0.1,
         tensor_args=tensor_args
     )
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # Construct planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params(robot_name=robot.name)
@@ -117,30 +117,34 @@ if __name__ == "__main__":
         vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
     )
 
-    planner_visualizer.animate_opt_iters_joint_space_state(
-        trajs=trajs_iters,
-        pos_start_state=start_state, pos_goal_state=goal_state,
-        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
-        video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
-        n_frames=max((2, opt_iters // 10)),
-        anim_time=5
-    )
+    # planner_visualizer.animate_opt_iters_joint_space_state(
+    #     trajs=trajs_iters,
+    #     pos_start_state=start_state, pos_goal_state=goal_state,
+    #     vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
+    #     video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
+    #     n_frames=max((2, opt_iters // 10)),
+    #     anim_time=5
+    # )
 
     planner_visualizer.render_robot_trajectories(
-        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+        trajs=pos_trajs_iters[-1, 0][None, ...][:, ::20, :], start_state=start_state, goal_state=goal_state,
         render_planner=False,
+        draw_links_spheres=False
     )
 
-    planner_visualizer.animate_robot_trajectories(
-        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
-        plot_trajs=False,
-        video_filepath=f'{base_file_name}-robot-traj.mp4',
-        # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
-        n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
-    )
+    # planner_visualizer.animate_robot_trajectories(
+    #     trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+    #     plot_trajs=False,
+    #     draw_links_spheres=True,
+    #     video_filepath=f'{base_file_name}-robot-traj.mp4',
+    #     # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
+    #     n_frames=pos_trajs_iters[-1].shape[1],
+    #     anim_time=traj_len*dt
+    # )
 
     plt.show()
+
+    exit()
 
     # -------------------------------- Physics ---------------------------------
     trajs_pos = robot.get_position(trajs_iters[-1]).movedim(1, 0)
@@ -162,26 +166,6 @@ if __name__ == "__main__":
     motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
     motion_planning_controller.run_trajectories(
         trajs_pos,
-        start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
-        visualize=True
-    )
-
-    # VELOCITY CONTROL
-    # add initial and final velocities multiple times
-    trajs_vel = torch.cat((einops.repeat(trajs_vel[0], 'b d -> h b d', h=100), trajs_vel))
-    trajs_vel = torch.cat((trajs_vel, einops.repeat(trajs_vel[-1], 'b d -> h b d', h=100)))
-
-    motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
-        env, robot, task,
-        controller_type='velocity',
-        num_envs=trajs_pos.shape[1],
-        all_robots_in_one_env=True,
-        color_robots=False,
-    )
-
-    motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
-    motion_planning_controller.run_trajectories(
-        trajs_vel,
         start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
         visualize=True
     )

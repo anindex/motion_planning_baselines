@@ -132,3 +132,5 @@ dmypy.json
 *.mp4
 
 .DS_Store
+
+examples/*.pt

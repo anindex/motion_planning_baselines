@@ -25,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 10
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.15,
+        obstacle_buffer=0.1,
         tensor_args=tensor_args
     )
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     ############### Optimization-based planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
     gpmp_default_params_env = env.get_gpmp_params()
 
     # Construct planner

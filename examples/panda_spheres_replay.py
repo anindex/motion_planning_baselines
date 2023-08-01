@@ -1,3 +1,5 @@
+import os
+
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
 import einops
@@ -34,18 +36,23 @@ task = PlanningTask(
 
 # -------------------------------- Physics ---------------------------------
 
-trajs_iters = torch.load('trajs_iters.pt')
+# trajs_iters = torch.load('trajs_iters.pt')
+traj_iters_path = 'trajs_iters_panda_spheres_GPMP.pt'
+# traj_iters_path = 'trajs_iters_panda_spheres_HybridPlanner.pt'
+
+traj_iters_base = os.path.splitext(traj_iters_path)[0]
+
+trajs_iters = torch.load(traj_iters_path)
 
 
 trajs_pos = robot.get_position(trajs_iters[-1]).movedim(1, 0)
 trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 
 # POSITION CONTROL
-# add initial and final positions multiple times
-trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 4).movedim(1, 0)
-trajs_pos = torch.cat((einops.repeat(trajs_pos[0], 'b d -> h b d', h=100), trajs_pos))
-trajs_pos = torch.cat((trajs_pos, einops.repeat(trajs_pos[-1], 'b d -> h b d', h=100)))
-
+# add initial positions for better visualization
+n_first_steps = 100
+n_last_steps = 100
+trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0)
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
@@ -62,20 +69,21 @@ motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
 motion_planning_controller.run_trajectories(
     trajs_pos,
     start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1][0],
+    n_first_steps=n_first_steps,
+    n_last_steps=n_last_steps,
     visualize=True,
     render_viewer_camera=True,
-    make_video=True
+    make_video=True,
+    video_path=f'{traj_iters_base}-controller-position.mp4',
+    make_gif=False
 )
 
 
-exit()
 
 
 # VELOCITY CONTROL
 # add initial and final velocities multiple times
-trajs_vel = torch.cat((einops.repeat(trajs_vel[0], 'b d -> h b d', h=100), trajs_vel))
-trajs_vel = torch.cat((trajs_vel, einops.repeat(trajs_vel[-1], 'b d -> h b d', h=100)))
-# trajs_vel = interpolate_traj_via_points(trajs_vel.movedim(0, 1), 1).movedim(1, 0)
+trajs_vel = interpolate_traj_via_points(trajs_vel.movedim(0, 1), 1).movedim(1, 0)
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
@@ -84,11 +92,19 @@ motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,
     color_robots=False,
+    show_goal_configuration=True,
+    sync_with_real_time=True
 )
 
 motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
 motion_planning_controller.run_trajectories(
     trajs_vel,
-    start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
-    visualize=True
+    start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1][0],
+    n_first_steps=n_first_steps,
+    n_last_steps=n_last_steps,
+    visualize=True,
+    render_viewer_camera=True,
+    make_video=True,
+    video_path=f'{traj_iters_base}-controller-velocity.mp4',
+    make_gif=False
 )
