@@ -1,6 +1,7 @@
 import einops
 
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
+from torch_robotics.environment.objects import GraspedObjectPandaBox
 
 import os
 from pathlib import Path
@@ -25,7 +26,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 999
+    seed = 11
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -38,13 +39,16 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPanda(tensor_args=tensor_args)
+    robot = RobotPanda(
+        # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+        tensor_args=tensor_args
+    )
 
     task = PlanningTask(
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.1,
+        obstacle_cutoff_margin=0.02,
         tensor_args=tensor_args
     )
 
@@ -127,15 +131,17 @@ if __name__ == "__main__":
     # )
 
     planner_visualizer.render_robot_trajectories(
-        trajs=pos_trajs_iters[-1, 0][None, ...][:, ::20, :], start_state=start_state, goal_state=goal_state,
+        trajs=pos_trajs_iters[-1, 0][None, ...][:, ::20, :],
+        # trajs=pos_trajs_iters[-1, 0][None, ...],
+        start_state=start_state, goal_state=goal_state,
         render_planner=False,
-        draw_links_spheres=False
+        draw_links_spheres=False,
     )
 
     # planner_visualizer.animate_robot_trajectories(
     #     trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
     #     plot_trajs=False,
-    #     draw_links_spheres=True,
+    #     draw_links_spheres=False,
     #     video_filepath=f'{base_file_name}-robot-traj.mp4',
     #     # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
     #     n_frames=pos_trajs_iters[-1].shape[1],

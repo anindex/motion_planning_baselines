@@ -44,8 +44,8 @@ class Cost(ABC):
 
         q_pos = self.robot.get_position(trajs)
         q_vel = self.robot.get_velocity(trajs)
-        H = self.robot.fk_map(q_pos)  # I, taskspaces, x_dim+1, x_dim+1 (homogeneous transformation matrices)
-        return trajs, q_pos, q_vel, H
+        H_positions = self.robot.fk_map_collision(q_pos)  # I, taskspaces, x_dim+1, x_dim+1 (homogeneous transformation matrices)
+        return trajs, q_pos, q_vel, H_positions
 
 
 class CostComposite(Cost):
@@ -61,23 +61,23 @@ class CostComposite(Cost):
         self.cost_list = cost_list
 
     def eval(self, trajs, **kwargs):
-        trajs, q_pos, q_vel, H = self.get_q_pos_vel_and_fk_map(trajs)
+        trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
 
         costs = 0
         for cost in self.cost_list:
-            costs += cost(trajs, q_pos=q_pos, q_vel=q_vel, H=H, **kwargs)
+            costs += cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
 
         return costs
 
     def get_linear_system(self, trajs, **kwargs):
         trajs.requires_grad = True
-        trajs, q_pos, q_vel, H = self.get_q_pos_vel_and_fk_map(trajs)
+        trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
 
         batch_size = trajs.shape[0]
         As, bs, Ks = [], [], []
         optim_dim = 0
         for cost in self.cost_list:
-            A, b, K = cost.get_linear_system(trajs, H=H, **kwargs)
+            A, b, K = cost.get_linear_system(trajs, H_positions=H_positions, **kwargs)
             if A is None or b is None or K is None:
                 continue
             optim_dim += A.shape[1]
@@ -120,10 +120,11 @@ class CostCollision(Cost):
             [1, self.traj_len]
         )
 
-    def eval(self, trajs, q_pos=None, q_vel=None, H=None, **observation):
+    def eval(self, trajs, q_pos=None, q_vel=None, H_positions=None, **observation):
         costs = 0
         if self.field is not None:
-            H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
+            # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
+            H_pos = H_positions
             err_obst = self.obst_factor.get_error(
                 trajs,
                 self.field,
@@ -137,11 +138,13 @@ class CostCollision(Cost):
 
         return costs
 
-    def get_linear_system(self, trajs, H=None, **observation):
+    def get_linear_system(self, trajs, H_positions=None, **observation):
         A, b, K = None, None, None
         if self.field is not None:
             batch_size = trajs.shape[0]
-            H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
+            # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
+            # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
+            H_pos = H_positions
             err_obst, H_obst = self.obst_factor.get_error(
                 trajs,
                 self.field,
