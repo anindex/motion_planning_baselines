@@ -26,7 +26,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 99
+    seed = 3
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
         obstacle_cutoff_margin=0.01,
         tensor_args=tensor_args
     )
@@ -66,8 +66,18 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 0.5:
             break
 
+    # start_state = torch.tensor([-2.6, 0.05, -1.2, -2.15,  1.33,  3.7, -1.7698],
+    #    device='cuda:0')
+    # goal_state = torch.tensor([ 0.9791, -0.2869,  2.0436, -0.4489, -0.2500,  1.6288,  2.0535],
+    #    device='cuda:0')
+
     # start_state = torch.tensor([1.0403,  0.0493,  0.0251, -1.2673,  1.6676,  3.3611, -1.5428], **tensor_args)
     # goal_state = torch.tensor([1.1142,  1.7289, -0.1771, -0.9284,  2.7171,  1.2497,  1.7724], **tensor_args)
+
+    print(start_state)
+    print(goal_state)
+
+
 
     # Construct planner
     traj_len = 64
@@ -122,14 +132,14 @@ if __name__ == "__main__":
         vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
     )
 
-    # planner_visualizer.animate_opt_iters_joint_space_state(
-    #     trajs=trajs_iters,
-    #     pos_start_state=start_state, pos_goal_state=goal_state,
-    #     vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
-    #     video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
-    #     n_frames=max((2, opt_iters // 10)),
-    #     anim_time=5
-    # )
+    planner_visualizer.animate_opt_iters_joint_space_state(
+        trajs=trajs_iters,
+        pos_start_state=start_state, pos_goal_state=goal_state,
+        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
+        video_filepath=f'{base_file_name}-joint-space-opt-iters.mp4',
+        n_frames=max((2, opt_iters // 10)),
+        anim_time=5
+    )
 
     planner_visualizer.render_robot_trajectories(
         trajs=pos_trajs_iters[-1, 0][None, ...][:, ::20, :],
@@ -139,40 +149,14 @@ if __name__ == "__main__":
         draw_links_spheres=False,
     )
 
-    # planner_visualizer.animate_robot_trajectories(
-    #     trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
-    #     plot_trajs=False,
-    #     draw_links_spheres=False,
-    #     video_filepath=f'{base_file_name}-robot-traj.mp4',
-    #     # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
-    #     n_frames=pos_trajs_iters[-1].shape[1],
-    #     anim_time=traj_len*dt
-    # )
+    planner_visualizer.animate_robot_trajectories(
+        trajs=pos_trajs_iters[-1, 0][None, ...], start_state=start_state, goal_state=goal_state,
+        plot_trajs=False,
+        draw_links_spheres=False,
+        video_filepath=f'{base_file_name}-robot-traj.mp4',
+        # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
+        n_frames=pos_trajs_iters[-1].shape[1],
+        anim_time=traj_len*dt
+    )
 
     plt.show()
-
-    exit()
-
-    # -------------------------------- Physics ---------------------------------
-    trajs_pos = robot.get_position(trajs_iters[-1]).movedim(1, 0)
-    trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
-
-    # POSITION CONTROL
-    # add initial and final positions multiple times
-    trajs_pos = torch.cat((einops.repeat(trajs_pos[0], 'b d -> h b d', h=100), trajs_pos))
-    trajs_pos = torch.cat((trajs_pos, einops.repeat(trajs_pos[-1], 'b d -> h b d', h=100)))
-
-    motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
-        env, robot, task,
-        controller_type='position',
-        num_envs=trajs_pos.shape[1],
-        all_robots_in_one_env=True,
-        color_robots=False,
-    )
-
-    motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
-    motion_planning_controller.run_trajectories(
-        trajs_pos,
-        start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1],
-        visualize=True
-    )

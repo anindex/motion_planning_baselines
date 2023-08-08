@@ -30,7 +30,7 @@ robot = RobotPanda(tensor_args=tensor_args)
 task = PlanningTask(
     env=env,
     robot=robot,
-    ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+    ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
     tensor_args=tensor_args
 )
 
