@@ -26,7 +26,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 11
+    seed = 99
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -40,6 +40,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
+        use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
@@ -48,7 +49,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.02,
+        obstacle_cutoff_margin=0.01,
         tensor_args=tensor_args
     )
 

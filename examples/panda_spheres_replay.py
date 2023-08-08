@@ -53,6 +53,7 @@ trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 n_first_steps = 100
 n_last_steps = 100
 trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0)
+# trajs_pos = trajs_pos[:, 0, :].unsqueeze(1)
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
@@ -62,7 +63,8 @@ motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     all_robots_in_one_env=True,
     color_robots=False,
     show_goal_configuration=True,
-    sync_with_real_time=True
+    sync_with_real_time=True,
+    # show_collision_spheres=True
 )
 
 motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)

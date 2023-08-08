@@ -77,7 +77,7 @@ class CostComposite(Cost):
         As, bs, Ks = [], [], []
         optim_dim = 0
         for cost in self.cost_list:
-            A, b, K = cost.get_linear_system(trajs, H_positions=H_positions, **kwargs)
+            A, b, K = cost.get_linear_system(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
             if A is None or b is None or K is None:
                 continue
             optim_dim += A.shape[1]
@@ -138,16 +138,19 @@ class CostCollision(Cost):
 
         return costs
 
-    def get_linear_system(self, trajs, H_positions=None, **observation):
+    def get_linear_system(self, trajs, q_pos=None, q_vel=None, H_positions=None, **observation):
         A, b, K = None, None, None
         if self.field is not None:
             batch_size = trajs.shape[0]
             # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
             # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
             H_pos = H_positions
+
             err_obst, H_obst = self.obst_factor.get_error(
                 trajs,
                 self.field,
+                q_pos=q_pos,
+                q_vel=q_vel,
                 H_pos=H_pos,
                 calc_jacobian=True,
                 obstacle_spheres=observation.get('obstacle_spheres', None)
