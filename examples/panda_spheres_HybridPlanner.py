@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # goal_state = torch.tensor([ 0.9791, -0.2869,  2.0436, -0.4489, -0.2500,  1.6288,  2.0535],
     #    device='cuda:0')
 
-    n_trajectories = 5
+    n_trajectories = 10
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     sample_based_planner = MultiSampleBasedPlanner(
         sample_based_planner_base,
         n_trajectories=n_trajectories,
-        max_processes=8,
+        max_processes=10,
         optimize_sequentially=True
     )
 
