@@ -26,7 +26,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 3
+    seed = 1
     fix_random_seed(seed)
 
     device = get_torch_device()

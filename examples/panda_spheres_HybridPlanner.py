@@ -25,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 3
+    seed = 1
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -64,6 +64,11 @@ if __name__ == "__main__":
 
         if torch.linalg.norm(start_state - goal_state) > 0.5:
             break
+
+    start_state = torch.tensor([2.0618, 0.1348, -2.0424, -0.2096, 1.9434, 3.6592, 1.5411],
+           device='cuda:0')
+    goal_state = torch.tensor([2.6536, 0.2925, -2.0234, -1.3153, 0.9215, 0.8489, 0.6921],
+           device='cuda:0')
 
     # start_state = torch.tensor([-2.6, 0.05, -1.2, -2.15,  1.33,  3.7, -1.7698],
     #    device='cuda:0')
