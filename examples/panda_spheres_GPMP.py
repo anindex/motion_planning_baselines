@@ -1,6 +1,3 @@
-import einops
-
-from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 from torch_robotics.environment.objects import GraspedObjectPandaBox
 
 import os
@@ -26,7 +23,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 1
+    seed = 5
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -40,7 +37,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
-        use_self_collision_storm=True,
+        # use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
@@ -49,7 +46,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.01,
+        obstacle_cutoff_margin=0.03,
         tensor_args=tensor_args
     )
 
@@ -111,7 +108,11 @@ if __name__ == "__main__":
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
-    torch.save(trajs_iters, f'trajs_iters_{base_file_name}.pt')
+    # save trajectories
+    torch.cuda.empty_cache()
+    trajs_iters_coll, trajs_iters_free = task.get_trajs_collision_and_free(trajs_iters[-1])
+    torch.save(trajs_iters_coll.unsqueeze(0), f'trajs_iters_coll_{base_file_name}.pt')
+    torch.save(trajs_iters_free.unsqueeze(0), f'trajs_iters_free_{base_file_name}.pt')
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(

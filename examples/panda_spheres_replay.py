@@ -2,6 +2,8 @@ import os
 
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
+from torch_robotics.environment.objects import GraspedObjectPandaBox
+
 import einops
 import torch
 
@@ -20,12 +22,13 @@ tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
 # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
 env = EnvSpheres3D(
-    precompute_sdf_obj_fixed=True,
-    sdf_cell_size=0.01,
     tensor_args=tensor_args
 )
 
-robot = RobotPanda(tensor_args=tensor_args)
+robot = RobotPanda(
+    # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+    tensor_args=tensor_args
+)
 
 task = PlanningTask(
     env=env,
@@ -37,8 +40,8 @@ task = PlanningTask(
 # -------------------------------- Physics ---------------------------------
 
 # trajs_iters = torch.load('trajs_iters.pt')
-traj_iters_path = 'trajs_iters_panda_spheres_GPMP.pt'
-# traj_iters_path = 'trajs_iters_panda_spheres_HybridPlanner.pt'
+traj_iters_path = 'trajs_iters_free_panda_spheres_GPMP.pt'
+# traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
 
 traj_iters_base = os.path.splitext(traj_iters_path)[0]
 
@@ -82,6 +85,7 @@ motion_planning_controller.run_trajectories(
 
 
 
+exit()
 
 # VELOCITY CONTROL
 # add initial and final velocities multiple times
@@ -89,7 +93,7 @@ trajs_vel = interpolate_traj_via_points(trajs_vel.movedim(0, 1), 1).movedim(1, 0
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
-    asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/isaacgym/assets",
+    asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/isaacgym/assets/",
     controller_type='velocity',
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,
