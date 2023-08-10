@@ -8,7 +8,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
 from torch_robotics.environment.env_base import EnvBase
 from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
-from torch_robotics.robot.robot_point_mass import RobotPointMass
+from torch_robotics.robot.robot_point_mass import RobotPointMass, RobotPointMass3D
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
@@ -30,20 +30,21 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvMazeBoxes3D(tensor_args=tensor_args)
+    env = EnvMazeBoxes3D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
+        tensor_args=tensor_args
+    )
 
-    robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
+    robot = RobotPointMass3D(
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
-        use_occupancy_map=False,
-        cell_size=0.01,
+        # ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.005,
         tensor_args=tensor_args
     )
 

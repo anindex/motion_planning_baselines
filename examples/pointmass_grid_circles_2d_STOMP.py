@@ -33,7 +33,6 @@ if __name__ == "__main__":
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
@@ -41,6 +40,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
+        obstacle_cutoff_margin=0.005,
         tensor_args=tensor_args
     )
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     multi_goal_states = goal_state.unsqueeze(0)
 
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
 
     # Construct cost function
     sigma_coll = 1e-3

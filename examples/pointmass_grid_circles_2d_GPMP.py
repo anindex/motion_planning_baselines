@@ -33,7 +33,6 @@ if __name__ == "__main__":
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
@@ -41,6 +40,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
+        obstacle_cutoff_margin=0.005,
         tensor_args=tensor_args
     )
 
@@ -50,8 +50,8 @@ if __name__ == "__main__":
 
     # Construct planner
     traj_len = 64
-    dt = 0.02
-    num_particles_per_goal = 50
+    dt = 0.04
+    num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params()
 

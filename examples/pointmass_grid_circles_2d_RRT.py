@@ -22,8 +22,8 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    planner = 'rrt-connect'
-    # planner = 'rrt-star'
+    # planner = 'rrt-connect'
+    planner = 'rrt-star'
 
     seed = 0
     fix_random_seed(seed)
@@ -37,7 +37,6 @@ if __name__ == "__main__":
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
@@ -48,12 +47,13 @@ if __name__ == "__main__":
         # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         use_occupancy_map=False,
         cell_size=0.01,
+        obstacle_cutoff_margin=0.005,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.5, -0.9], **tensor_args)
-    goal_state = torch.tensor([0.5, -0.05], **tensor_args)
+    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
+    goal_state = torch.tensor([0.8, 0.8], **tensor_args)
 
     n_iters = 30000
     step_size = 0.01

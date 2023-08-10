@@ -41,7 +41,7 @@ task = PlanningTask(
 
 # trajs_iters = torch.load('trajs_iters.pt')
 traj_iters_path = 'trajs_iters_free_panda_spheres_GPMP.pt'
-# traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
+traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
 
 traj_iters_base = os.path.splitext(traj_iters_path)[0]
 

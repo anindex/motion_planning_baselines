@@ -23,7 +23,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 5
+    seed = 9
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -111,8 +111,10 @@ if __name__ == "__main__":
     # save trajectories
     torch.cuda.empty_cache()
     trajs_iters_coll, trajs_iters_free = task.get_trajs_collision_and_free(trajs_iters[-1])
-    torch.save(trajs_iters_coll.unsqueeze(0), f'trajs_iters_coll_{base_file_name}.pt')
-    torch.save(trajs_iters_free.unsqueeze(0), f'trajs_iters_free_{base_file_name}.pt')
+    if trajs_iters_coll is not None:
+        torch.save(trajs_iters_coll.unsqueeze(0), f'trajs_iters_coll_{base_file_name}.pt')
+    if trajs_iters_free is not None:
+        torch.save(trajs_iters_free.unsqueeze(0), f'trajs_iters_free_{base_file_name}.pt')
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(

@@ -20,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 2
+    seed = 11
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -34,14 +34,16 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
-        grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+        # use_self_collision_storm=True,
+        # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
+        obstacle_cutoff_margin=0.03,
         tensor_args=tensor_args
     )
 
@@ -50,15 +52,15 @@ if __name__ == "__main__":
     start_state = q_free[0]
     goal_state = q_free[1]
 
-    start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393], device='cuda:0')
-    goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158], device='cuda:0')
+    # start_state = torch.tensor([ 1.9413, -0.0090,  2.3629, -0.8916,  0.2496,  3.5482, -0.7393], device='cuda:0')
+    # goal_state = torch.tensor([-2.6686, -0.1020, -0.2527, -2.7064,  1.0567,  1.2865,  2.2158], device='cuda:0')
 
     print(start_state)
     print(goal_state)
 
     # Construct planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params()

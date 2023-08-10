@@ -1,4 +1,5 @@
 import os
+import time
 from copy import copy
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
 from torch_robotics.environment.env_base import EnvBase
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
+from torch_robotics.environment.env_narrow_passage_dense_2d import EnvNarrowPassageDense2D
 from torch_robotics.environment.utils import create_grid_spheres
 from torch_robotics.robot.robot_point_mass import RobotPointMass
 from torch_robotics.task.tasks import PlanningTask
@@ -35,37 +37,50 @@ if __name__ == "__main__":
     # tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvGridCircles2D(
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    # env = EnvDense2DExtraObjects(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    env = EnvNarrowPassageDense2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
         tensor_args=tensor_args
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
+        # ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
         # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         use_occupancy_map=False,
-        cell_size=0.01,
+        cell_size=0.001,
+        obstacle_cutoff_margin=0.005,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    goal_state = torch.tensor([-0.8, 0.8], **tensor_args)
-    # start_state = torch.tensor([-0.8, -0.8], **tensor_args)
-    # goal_state = torch.tensor([-0.15, -0.75], **tensor_args)
+    start_state = torch.tensor([-0.9, -0.9], **tensor_args)
+    # goal_state = torch.tensor([0.25, 0.9], **tensor_args)
+    goal_state = torch.tensor([-0.9, 0.], **tensor_args)
 
     n_iters = 30000
     step_size = 0.01
     n_radius = 0.1
     max_time = 60.
 
-    n_trajectories = 100
+    n_trajectories = 8  # use the cpu and increase to 100 to see the benefit of multiprocessing
 
     if planner == 'rrt-connect':
         rrt_connect_params = dict(
@@ -108,7 +123,7 @@ if __name__ == "__main__":
         sample_based_planner = MultiSampleBasedPlanner(
             planner,
             n_trajectories=n_trajectories,
-            max_processes=8,
+            # max_processes=8,
             optimize_sequentially=False
         )
         trajs_l = sample_based_planner.optimize()
@@ -129,6 +144,8 @@ if __name__ == "__main__":
         task=task,
         planner=planner
     )
+
+    base_file_name = Path(os.path.basename(__file__)).stem
 
     fig, ax = None, None
     for traj in trajs_l:

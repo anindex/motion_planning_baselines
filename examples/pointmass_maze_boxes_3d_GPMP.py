@@ -9,7 +9,7 @@ from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, Co
 from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
-from torch_robotics.robot.robot_point_mass import RobotPointMass
+from torch_robotics.robot.robot_point_mass import RobotPointMass, RobotPointMass3D
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
@@ -33,15 +33,15 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
+    robot = RobotPointMass3D(
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        # ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.005,
         tensor_args=tensor_args
     )
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     # Construct planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params()

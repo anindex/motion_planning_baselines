@@ -22,24 +22,27 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 25
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvSpheres3D(tensor_args=tensor_args)
+    env = EnvSpheres3D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.01,
+        tensor_args=tensor_args)
 
-    robot = RobotPanda(tensor_args=tensor_args)
+    robot = RobotPanda(
+        use_self_collision_storm=True,
+        tensor_args=tensor_args)
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
-        # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
-        use_occupancy_map=False,
-        cell_size=0.05,
+        ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
+        obstacle_cutoff_margin=0.01,
         tensor_args=tensor_args
     )
 

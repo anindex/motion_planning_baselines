@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
 from mp_baselines.planners.gpmp import GPMP
 from torch_robotics.environment.env_dense_2d import EnvDense2D
 from torch_robotics.environment.env_dense_2d_extra_objects import EnvDense2DExtraObjects
@@ -48,7 +47,6 @@ if __name__ == "__main__":
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
@@ -56,7 +54,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         # ws_limits=torch.tensor([[-0.85, -0.85], [0.95, 0.95]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.01,
+        obstacle_buffer=0.005,
         tensor_args=tensor_args
     )
 
@@ -66,7 +64,7 @@ if __name__ == "__main__":
 
     # Construct planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp_params()

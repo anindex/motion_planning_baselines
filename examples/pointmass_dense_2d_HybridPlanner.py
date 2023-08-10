@@ -49,7 +49,6 @@ if __name__ == "__main__":
     )
 
     robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1], [1, 1]], **tensor_args),  # configuration space limits
         tensor_args=tensor_args
     )
 
@@ -57,7 +56,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         # ws_limits=torch.tensor([[-0.81, -0.81], [0.95, 0.95]], **tensor_args),  # workspace limits
-        obstacle_buffer=0.01,
+        obstacle_buffer=0.005,
         tensor_args=tensor_args
     )
 
@@ -76,7 +75,7 @@ if __name__ == "__main__":
     # goal_state = torch.tensor([0.25, 0.9], **tensor_args)
     goal_state = torch.tensor([-0.9, 0.], **tensor_args)
 
-    n_trajectories = 10
+    n_trajectories = 5
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -95,12 +94,12 @@ if __name__ == "__main__":
         sample_based_planner_base,
         n_trajectories=n_trajectories,
         max_processes=8,
-        optimize_sequentially=False
+        optimize_sequentially=True
     )
 
     ############### Optimization-based planner
     traj_len = 64
-    dt = 0.02
+    dt = 0.04
 
     gpmp_default_params_env = env.get_gpmp_params()
     gpmp_default_params_env['opt_iters'] = 150

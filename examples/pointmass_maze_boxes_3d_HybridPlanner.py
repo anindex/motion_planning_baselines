@@ -13,7 +13,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environment.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environment.env_maze_boxes_3d import EnvMazeBoxes3D
-from torch_robotics.robot.robot_point_mass import RobotPointMass
+from torch_robotics.robot.robot_point_mass import RobotPointMass, RobotPointMass3D
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
@@ -36,15 +36,15 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPointMass(
-        q_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # configuration space limits
+    robot = RobotPointMass3D(
         tensor_args=tensor_args
     )
 
     task = PlanningTask(
         env=env,
         robot=robot,
-        ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        # ws_limits=torch.tensor([[-1, -1, -1], [1, 1, 1]], **tensor_args),  # workspace limits
+        obstacle_buffer=0.005,
         tensor_args=tensor_args
     )
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     start_state = torch.tensor([-0.8, -0.8, -0.8], **tensor_args)
     goal_state = torch.tensor([0.8, 0.8, 0.8], **tensor_args)
 
-    n_trajectories = 10
+    n_trajectories = 5
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     ############### Optimization-based planner
     traj_len = 128
-    dt = 0.02
+    dt = 0.04
 
     gpmp_default_params_env = env.get_gpmp_params()
 
