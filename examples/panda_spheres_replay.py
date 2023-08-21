@@ -1,6 +1,5 @@
 import os
 
-from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
 from torch_robotics.environment.objects import GraspedObjectPandaBox
@@ -9,6 +8,7 @@ import einops
 import torch
 
 from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
 from torch_robotics.robot.robot_panda import RobotPanda
 from torch_robotics.task.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -42,7 +42,7 @@ task = PlanningTask(
 
 # trajs_iters = torch.load('trajs_iters.pt')
 traj_iters_path = 'trajs_iters_free_panda_spheres_GPMP.pt'
-traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
+# traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
 
 traj_iters_base = os.path.splitext(traj_iters_path)[0]
 
