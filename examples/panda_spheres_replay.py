@@ -1,5 +1,6 @@
 import os
 
+from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
 from torch_robotics.environment.objects import GraspedObjectPandaBox
