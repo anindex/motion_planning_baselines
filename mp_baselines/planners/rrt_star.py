@@ -87,7 +87,7 @@ class RRTStar(RRTBase):
             self,
             task=None,
             n_iters: int = None,
-            start_state: torch.Tensor = None,
+            start_state_pos: torch.Tensor = None,
             n_iters_after_success=None,
             max_best_cost_iters: int = 1000,
             cost_eps: float = 1e-2,
@@ -96,7 +96,7 @@ class RRTStar(RRTBase):
             n_knn: int = 0,
             max_time: float = 60.,
             goal_prob: float = .1,
-            goal_state: torch.Tensor = None,
+            goal_state_pos: torch.Tensor = None,
             tensor_args: dict = None,
             n_pre_samples=10000,
             pre_samples=None,
@@ -106,8 +106,8 @@ class RRTStar(RRTBase):
             'RRTStar',
             task,
             n_iters,
-            start_state,
-            goal_state,
+            start_state_pos,
+            goal_state_pos,
             step_size,
             n_radius,
             max_time,
@@ -140,14 +140,14 @@ class RRTStar(RRTBase):
         eps = observation.get('eps', 1e-6)
         print_freq = observation.get('print_freq', 150)
         debug = observation.get('debug', False)
-        if self.collision_fn(self.start_state).squeeze() or self.collision_fn(self.goal_state).squeeze():
+        if self.collision_fn(self.start_state_pos).squeeze() or self.collision_fn(self.goal_state_pos).squeeze():
             return None
         if initial_nodes is not None:
             self.nodes = initial_nodes
             self.nodes_torch = torch.vstack([node.config for node in self.nodes])
         else:
-            self.nodes = [OptimalNode(self.start_state)]
-            self.nodes_torch = OptimalNode(self.start_state).config
+            self.nodes = [OptimalNode(self.start_state_pos)]
+            self.nodes_torch = OptimalNode(self.start_state_pos).config
 
         goal_n = None
         iteration = -1
@@ -184,7 +184,7 @@ class RRTStar(RRTBase):
                 # Sample new node
                 do_goal = goal_n is None and (iteration == 0 or torch.rand(1) < self.goal_prob)
                 if do_goal:
-                    s = self.goal_state
+                    s = self.goal_state_pos
                 else:
                     s = self.sample_fn(**observation)
 
@@ -194,7 +194,7 @@ class RRTStar(RRTBase):
 
                 # Informed RRT*
                 start_time_iter = time.time()
-                if informed and (goal_n is not None) and (self.distance_fn(self.start_state, s) + self.distance_fn(s, self.goal_state) >= goal_n.cost):
+                if informed and (goal_n is not None) and (self.distance_fn(self.start_state_pos, s) + self.distance_fn(s, self.goal_state_pos) >= goal_n.cost):
                     self.remove_last_pre_sample()
                     continue
 
@@ -213,7 +213,7 @@ class RRTStar(RRTBase):
                 new = OptimalNode(path[-1], parent=nearest, d=self.distance_fn(
                     nearest.config, path[-1]), path=list(path[:-1]), iteration=iteration)
 
-                if do_goal and (self.distance_fn(new.config, self.goal_state) < eps):
+                if do_goal and (self.distance_fn(new.config, self.goal_state_pos) < eps):
                     goal_n = new
                     goal_n.set_solution(True)
 

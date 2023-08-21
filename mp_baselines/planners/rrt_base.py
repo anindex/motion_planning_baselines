@@ -13,8 +13,8 @@ class RRTBase(MPPlanner):
             name: str = 'RRTBase',
             task=None,
             n_iters: int = None,
-            start_state: torch.Tensor = None,
-            goal_state: torch.Tensor = None,
+            start_state_pos: torch.Tensor = None,
+            goal_state_pos: torch.Tensor = None,
             step_size: float = 0.1,
             n_radius: float = 1.,
             max_time: float = 60.,
@@ -32,8 +32,8 @@ class RRTBase(MPPlanner):
         self.n_radius = n_radius
         self.max_time = max_time
 
-        self.start_state = start_state
-        self.goal_state = goal_state
+        self.start_state_pos = start_state_pos
+        self.goal_state_pos = goal_state_pos
 
         self.n_pre_samples = n_pre_samples
         self.pre_samples = pre_samples
@@ -76,7 +76,7 @@ class RRTBase(MPPlanner):
 
     def random_collision_free(self, **observation):
         """
-        Returns: random positions in environment space not in collision
+        Returns: random positions in environments space not in collision
         """
         refill_samples_buffer = observation.get('refill_samples_buffer', False)
         if len(self.pre_samples) > 0:

@@ -2,15 +2,15 @@ import os
 
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
-from torch_robotics.environment.objects import GraspedObjectPandaBox
+from torch_robotics.environments.objects import GraspedObjectPandaBox
 
 import einops
 import torch
 
-from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
-from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
-from torch_robotics.robot.robot_panda import RobotPanda
-from torch_robotics.task.tasks import PlanningTask
+from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environments.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
+from torch_robotics.robots.robot_panda import RobotPanda
+from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.trajectory.utils import interpolate_traj_via_points
@@ -61,7 +61,7 @@ trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
-    asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/isaacgym/assets",
+    asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/deps/isaacgym/assets",
     controller_type='position',
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,

@@ -60,11 +60,11 @@ class RRTConnect(RRTBase):
             self,
             task=None,
             n_iters: int = None,
-            start_state: torch.Tensor = None,
+            start_state_pos: torch.Tensor = None,
             step_size: float = 0.1,
             n_radius: float = 1.,
             max_time: float = 60.,
-            goal_state: torch.Tensor = None,
+            goal_state_pos: torch.Tensor = None,
             tensor_args: dict = None,
             n_pre_samples=10000,
             pre_samples=None,
@@ -74,8 +74,8 @@ class RRTConnect(RRTBase):
             'RRTConnect',
             task,
             n_iters,
-            start_state,
-            goal_state,
+            start_state_pos,
+            goal_state_pos,
             step_size,
             n_radius,
             max_time,
@@ -97,14 +97,14 @@ class RRTConnect(RRTBase):
         print_freq = observation.get('print_freq', 150)
         debug = observation.get('debug', False)
 
-        if self.collision_fn(self.start_state).squeeze() or self.collision_fn(self.goal_state).squeeze():
+        if self.collision_fn(self.start_state_pos).squeeze() or self.collision_fn(self.goal_state_pos).squeeze():
             return None
 
         iteration = -1
         success = False
 
-        self.nodes_tree_1 = [TreeNode(self.start_state)]
-        self.nodes_tree_2 = [TreeNode(self.goal_state)]
+        self.nodes_tree_1 = [TreeNode(self.start_state_pos)]
+        self.nodes_tree_2 = [TreeNode(self.goal_state_pos)]
 
         self.nodes_tree_1_torch = self.nodes_tree_1[0].config
         self.nodes_tree_2_torch = self.nodes_tree_2[0].config

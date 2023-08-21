@@ -30,14 +30,14 @@ class HybridPlanner(MPPlanner):
     def render(self, ax, **kwargs):
         raise NotImplementedError
 
-    def optimize(self, debug=False, return_iterations=False, **kwargs):
+    def optimize(self, debug=False, print_times=False, return_iterations=False, **kwargs):
         with TimerCUDA() as t_hybrid:
             #################################################
             # Get initial position solutions with a sample-based planner
             # Optimize in parallel
             with TimerCUDA() as t_sample_based:
                 traj_l = self.sample_based_planner.optimize(refill_samples_buffer=True, debug=debug, **kwargs)
-            if debug:
+            if debug or print_times:
                 print(f'Sample-based Planner -- Optimization time: {t_sample_based.elapsed:.3f} sec')
 
             #################################################
@@ -48,7 +48,7 @@ class HybridPlanner(MPPlanner):
                 # if is not collision-free
                 if traj is None:
                     traj = tensor_linspace_v1(
-                        self.sample_based_planner.start_state, self.sample_based_planner.goal_state,
+                        self.sample_based_planner.start_state_pos, self.sample_based_planner.goal_state_pos,
                         steps=self.opt_based_planner.traj_len).T
                 traj_pos, traj_vel = smoothen_trajectory(
                     traj, traj_len=self.opt_based_planner.traj_len, dt=self.opt_based_planner.dt,
@@ -77,10 +77,10 @@ class HybridPlanner(MPPlanner):
                 for i in range(self.opt_based_planner.opt_iters):
                     trajs = self.opt_based_planner.optimize(opt_iters=1, debug=debug, **kwargs)
                     trajs_iters[i + 1] = trajs
-            if debug:
+            if debug or print_times:
                 print(f'Optimization-based Planner -- Optimization time: {t_opt_based.elapsed:.3f} sec')
 
-        if debug:
+        if debug or print_times:
             print(f'Hybrid-based Planner -- Optimization time: {t_hybrid.elapsed:.3f} sec')
 
         if return_iterations:

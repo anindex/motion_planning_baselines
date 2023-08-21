@@ -1,4 +1,4 @@
-from torch_robotics.environment.objects import GraspedObjectPandaBox
+from torch_robotics.environments.objects import GraspedObjectPandaBox
 
 import os
 from pathlib import Path
@@ -12,9 +12,9 @@ from mp_baselines.planners.gpmp import GPMP
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
-from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
-from torch_robotics.robot.robot_panda import RobotPanda
-from torch_robotics.task.tasks import PlanningTask
+from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
+from torch_robotics.robots.robot_panda import RobotPanda
+from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
 from torch_robotics.visualizers.planning_visualizer import PlanningVisualizer

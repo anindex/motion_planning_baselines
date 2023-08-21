@@ -1,4 +1,4 @@
-from torch_robotics.environment.objects import GraspedObjectPandaBox
+from torch_robotics.environments.objects import GraspedObjectPandaBox
 
 import os
 from pathlib import Path
@@ -8,10 +8,10 @@ import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.gpmp import GPMP
-from torch_robotics.environment.env_spheres_3d import EnvSpheres3D
-from torch_robotics.environment.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
-from torch_robotics.robot.robot_panda import RobotPanda
-from torch_robotics.task.tasks import PlanningTask
+from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environments.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
+from torch_robotics.robots.robot_panda import RobotPanda
+from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
 from torch_robotics.torch_utils.torch_utils import get_torch_device
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
-        # use_self_collision_storm=True,
+        use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )

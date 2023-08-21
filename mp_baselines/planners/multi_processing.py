@@ -4,9 +4,9 @@ import torch.multiprocessing as mp
 class MultiProcessor:
     # Adapated from https://stackoverflow.com/a/45829852
 
-    def __init__(self, max_processes=mp.cpu_count(), start_method='forkserver', **kwargs):
+    def __init__(self, max_processes=-1, start_method='forkserver', **kwargs):
         mp.set_start_method(start_method)
-        self.pool = mp.Pool(processes=max_processes)
+        self.pool = mp.Pool(processes=mp.cpu_count() if max_processes == -1 else max_processes)
         self.async_results = []
 
     @staticmethod
