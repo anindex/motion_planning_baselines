@@ -17,6 +17,7 @@ class CHOMP(OptimizationPlanner):
             dt: float,
             start_state: torch.Tensor,
             cost=None,
+            weight_prior_cost=0.1,
             initial_particle_means=None,
             step_size: float = 1.,
             grad_clip: float = .01,
@@ -53,9 +54,13 @@ class CHOMP(OptimizationPlanner):
         self.Sigma = torch.inverse(self.Sigma_inv)
         self.reset(initial_particle_means=initial_particle_means)
 
+        # Weight prior
+        self.weight_prior_cost = weight_prior_cost
+
     def _get_R_mat2(self):
         """
         STOMP time-correlated Precision matrix.
+        Central finite difference velocity.
         """
         upper_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=1)
         lower_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=-1,)
@@ -76,18 +81,15 @@ class CHOMP(OptimizationPlanner):
     def _get_R_mat(self):
         """
         CHOMP time-correlated Precision matrix.
+        Backward finite difference velocity.
         """
         lower_diag = -torch.diag(torch.ones(self.traj_len - 1), diagonal=-1)
         diag = 1 * torch.eye(self.traj_len)
-        A_mat = diag + lower_diag
-        A_mat = torch.cat(
-            (A_mat,
-             torch.zeros(1, self.traj_len)),
-            dim=0,
-        )
-        A_mat[-1, -1] = -1.
-        A_mat = A_mat * 1. / self.dt ** 2
-        R_mat = A_mat.t() @ A_mat
+        K_mat = diag + lower_diag
+        K_mat = torch.cat((K_mat, torch.zeros(1, self.traj_len)), dim=0)
+        K_mat[-1, -1] = -1.
+        K_mat = K_mat * 1. / self.dt ** 2
+        R_mat = K_mat.t() @ K_mat
 
         return R_mat.to(**self.tensor_args)
 
@@ -151,10 +153,10 @@ class CHOMP(OptimizationPlanner):
         # Evaluate (collision, ...) costs
         costs = self._get_costs(x, **observation)
 
-        # Add smoothness term
+        # Add smoothness term (prior)
         R_mat = self.Sigma_inv
         smooth_cost = batched_weighted_dot_prod(x, R_mat, x).sum()
 
-        costs += smooth_cost
+        costs += self.weight_prior_cost * smooth_cost
 
         return costs

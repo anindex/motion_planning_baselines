@@ -55,17 +55,19 @@ class CostComposite(Cost):
         robot,
         traj_len,
         cost_list,
+        weights_cost_l=None,
         **kwargs
     ):
         super().__init__(robot, traj_len, **kwargs)
-        self.cost_list = cost_list
+        self.cost_l = cost_list
+        self.weight_cost_l = weights_cost_l if weights_cost_l is not None else [1.0] * len(cost_list)
 
     def eval(self, trajs, **kwargs):
         trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
 
         costs = 0
-        for cost in self.cost_list:
-            costs += cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+        for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
+            costs += weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
 
         return costs
 
@@ -76,7 +78,7 @@ class CostComposite(Cost):
         batch_size = trajs.shape[0]
         As, bs, Ks = [], [], []
         optim_dim = 0
-        for cost in self.cost_list:
+        for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
             A, b, K = cost.get_linear_system(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
             if A is None or b is None or K is None:
                 continue

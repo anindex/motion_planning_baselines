@@ -55,6 +55,7 @@ if __name__ == "__main__":
 
     # Construct cost function
     cost_collisions = []
+    weights_cost_l = []
     for collision_field in task.get_collision_fields():
         cost_collisions.append(
             CostCollision(
@@ -64,15 +65,17 @@ if __name__ == "__main__":
                 tensor_args=tensor_args
             )
         )
+        weights_cost_l.append(10.0)
 
     cost_func_list = [*cost_collisions]
     cost_composite = CostComposite(
         robot, traj_len, cost_func_list,
+        weights_cost_l=weights_cost_l,
         tensor_args=tensor_args
     )
 
-    num_particles_per_goal = 3
-    opt_iters = 50
+    num_particles_per_goal = 5
+    opt_iters = 100
 
     planner_params = dict(
         n_dof=robot.q_dim,
@@ -82,12 +85,13 @@ if __name__ == "__main__":
         dt=dt,
         start_state=start_state,
         cost=cost_composite,
-        step_size=0.1,
-        grad_clip=.01,
+        weight_prior_cost=1e-4,
+        step_size=0.05,
+        grad_clip=0.05,
         multi_goal_states=multi_goal_states,
         sigma_start_init=0.001,
         sigma_goal_init=0.001,
-        sigma_gp_init=5.,
+        sigma_gp_init=0.3,
         pos_only=False,
         tensor_args=tensor_args,
     )
