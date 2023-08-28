@@ -301,9 +301,7 @@ class CostGPTrajectory(Cost):
         w_mat = w_mat.reshape(1, 1, self.dim, self.dim)
         gp_costs = err_gp.transpose(2, 3) @ w_mat @ err_gp
         gp_costs = gp_costs.sum(1).squeeze()
-
         costs = gp_costs
-
         return costs
 
     def get_linear_system(self, trajs, **observation):
