@@ -314,11 +314,10 @@ class CostGPTrajectoryPositionOnlyWrapper(CostGPTrajectory):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.vel = None
 
     def eval(self, trajs, **observation):
-        self.vel = finite_difference_vector(trajs, dt=self.dt, method='central')
-        trajs_tmp = torch.cat((trajs, self.vel), dim=-1)
+        vel = finite_difference_vector(trajs, dt=self.dt, method='central')
+        trajs_tmp = torch.cat((trajs, vel), dim=-1)
         return super().eval(trajs_tmp, **observation)
 
 
