@@ -453,7 +453,6 @@ class GPMP(OptimizationPlanner):
             )
             res_ = torch.zeros_like(b_stacked)
 
-
             solver.solve(b_stacked, res_)
 
             # batchify results

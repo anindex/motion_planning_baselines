@@ -64,15 +64,23 @@ class CostComposite(Cost):
         self.cost_l = cost_list
         self.weight_cost_l = weights_cost_l if weights_cost_l is not None else [1.0] * len(cost_list)
 
-    def eval(self, trajs, **kwargs):
+    def eval(self, trajs, return_invidual_costs_and_weights=False, **kwargs):
         trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
 
-        costs = 0
-        for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
-            cost_tmp = weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
-            costs += cost_tmp
+        if not return_invidual_costs_and_weights:
+            cost_total = 0
+            for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
+                cost_tmp = weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+                cost_total += cost_tmp
+            return cost_total
+        else:
+            cost_l = []
+            for cost in self.cost_l:
+                cost_tmp = cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+                cost_l.append(cost_tmp)
 
-        return costs
+            if return_invidual_costs_and_weights:
+                return cost_l, self.weight_cost_l
 
     def get_linear_system(self, trajs, **kwargs):
         trajs.requires_grad = True
