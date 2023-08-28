@@ -2,12 +2,14 @@
 from abc import ABC, abstractmethod
 
 import einops
+import numpy as np
 import torch
 
 from mp_baselines.planners.costs.factors.field_factor import FieldFactor
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 from torch_robotics.torch_kinematics_tree.geometrics.utils import link_pos_from_link_tensor
+from torch_robotics.trajectory.utils import finite_difference_vector
 
 
 class Cost(ABC):
@@ -67,7 +69,8 @@ class CostComposite(Cost):
 
         costs = 0
         for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
-            costs += weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+            cost_tmp = weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+            costs += cost_tmp
 
         return costs
 
@@ -268,14 +271,14 @@ class CostGPTrajectory(Cost):
             traj_len,
             start_state,
             dt,
-            sigma_params,
+            sigma_gp,
             **kwargs
     ):
         super().__init__(robot, traj_len, **kwargs)
         self.start_state = start_state
         self.dt = dt
 
-        self.sigma_gp = sigma_params['sigma_gp']
+        self.sigma_gp = sigma_gp
 
         self.set_cost_factors()
 
@@ -297,8 +300,7 @@ class CostGPTrajectory(Cost):
         w_mat = self.gp_prior.Q_inv[0]  # repeated Q_inv
         w_mat = w_mat.reshape(1, 1, self.dim, self.dim)
         gp_costs = err_gp.transpose(2, 3) @ w_mat @ err_gp
-        gp_costs = gp_costs.sum(1)
-        gp_costs = gp_costs.squeeze()
+        gp_costs = gp_costs.sum(1).squeeze()
 
         costs = gp_costs
 
@@ -306,6 +308,18 @@ class CostGPTrajectory(Cost):
 
     def get_linear_system(self, trajs, **observation):
         pass
+
+
+class CostGPTrajectoryPositionOnlyWrapper(CostGPTrajectory):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vel = None
+
+    def eval(self, trajs, **observation):
+        self.vel = finite_difference_vector(trajs, dt=self.dt, method='central')
+        trajs_tmp = torch.cat((trajs, self.vel), dim=-1)
+        return super().eval(trajs_tmp, **observation)
 
 
 class CostGoal(Cost):
