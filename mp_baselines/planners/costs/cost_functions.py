@@ -279,7 +279,7 @@ class CostGPTrajectory(Cost):
             traj_len,
             start_state,
             dt,
-            sigma_gp,
+            sigma_gp=None,
             **kwargs
     ):
         super().__init__(robot, traj_len, **kwargs)
