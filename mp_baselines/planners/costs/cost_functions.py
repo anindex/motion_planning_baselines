@@ -9,6 +9,7 @@ from mp_baselines.planners.costs.factors.field_factor import FieldFactor
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 from torch_robotics.torch_kinematics_tree.geometrics.utils import link_pos_from_link_tensor
+from torch_robotics.torch_utils.torch_utils import batched_weighted_dot_prod
 from torch_robotics.trajectory.utils import finite_difference_vector
 
 
@@ -325,6 +326,46 @@ class CostGPTrajectoryPositionOnlyWrapper(CostGPTrajectory):
         vel = finite_difference_vector(trajs, dt=self.dt, method='central')
         trajs_tmp = torch.cat((trajs, vel), dim=-1)
         return super().eval(trajs_tmp, **observation)
+
+
+class CostSmoothnessCHOMP(Cost):
+
+    def __init__(
+            self,
+            robot,
+            traj_len,
+            start_state,
+            dt,
+            **kwargs
+    ):
+        super().__init__(robot, traj_len, **kwargs)
+        self.start_state = start_state
+        self.dt = dt
+
+        self.Sigma_inv = self._get_R_mat()
+
+    def _get_R_mat(self):
+        """
+        CHOMP time-correlated Precision matrix.
+        Backward finite difference velocity.
+        """
+        lower_diag = -torch.diag(torch.ones(self.traj_len - 1), diagonal=-1)
+        diag = 1 * torch.eye(self.traj_len)
+        K_mat = diag + lower_diag
+        K_mat = torch.cat((K_mat, torch.zeros(1, self.traj_len)), dim=0)
+        K_mat[-1, -1] = -1.
+        K_mat = K_mat * 1. / self.dt ** 2
+        R_mat = K_mat.t() @ K_mat
+
+        return R_mat.to(**self.tensor_args)
+
+    def eval(self, trajs, **observation):
+        R_mat = self.Sigma_inv
+        cost = batched_weighted_dot_prod(trajs, R_mat, trajs).sum()
+        return cost
+
+    def get_linear_system(self, trajs, **observation):
+        pass
 
 
 class CostGoal(Cost):
