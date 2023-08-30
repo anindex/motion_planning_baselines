@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.gpmp import GPMP
+from mp_baselines.planners.gpmp2 import GPMP2
 from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
 from torch_robotics.environments.env_spheres_3d_extra_objects import EnvSpheres3DExtraObjects
 from torch_robotics.robots.robot_panda import RobotPanda
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     dt = 0.04
     num_particles_per_goal = 10
 
-    default_params_env = env.get_gpmp_params(robot_name=robot.name)
+    default_params_env = env.get_gpmp2_params(robot_name=robot.name)
 
     planner_params = dict(
         **default_params_env,
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner = GPMP(**planner_params)
+    planner = GPMP2(**planner_params)
 
     # Optimize
     opt_iters = default_params_env['opt_iters']

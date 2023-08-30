@@ -6,7 +6,7 @@ import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
-from mp_baselines.planners.gpmp import GPMP
+from mp_baselines.planners.gpmp2 import GPMP2
 from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     dt = 0.04
     num_particles_per_goal = 2
 
-    gpmp_default_params_env = env.get_gpmp_params()
+    gpmp_default_params_env = env.get_gpmp2_params()
 
     # Construct planner
     planner_params = dict(
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner = GPMP(**planner_params)
+    planner = GPMP2(**planner_params)
 
     # Optimize
     opt_iters = gpmp_default_params_env['opt_iters']

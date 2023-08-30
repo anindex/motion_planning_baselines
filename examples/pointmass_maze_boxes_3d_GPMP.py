@@ -6,7 +6,7 @@ import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostComposite, CostCollision
-from mp_baselines.planners.gpmp import GPMP
+from mp_baselines.planners.gpmp2 import GPMP2
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environments.env_maze_boxes_3d import EnvMazeBoxes3D
 from torch_robotics.robots.robot_point_mass import RobotPointMass, RobotPointMass3D
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     dt = 0.04
     num_particles_per_goal = 10
 
-    default_params_env = env.get_gpmp_params()
+    default_params_env = env.get_gpmp2_params()
 
     planner_params = dict(
         **default_params_env,
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         collision_fields=task.get_collision_fields(),
         tensor_args=tensor_args,
     )
-    planner = GPMP(**planner_params)
+    planner = GPMP2(**planner_params)
 
     # Optimize
     opt_iters = default_params_env['opt_iters']

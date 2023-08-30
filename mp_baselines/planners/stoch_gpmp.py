@@ -9,7 +9,7 @@ from mp_baselines.planners.base import OptimizationPlanner
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
-from mp_baselines.planners.gpmp import build_gpmp_cost_composite
+from mp_baselines.planners.gpmp2 import build_gpmp2_cost_composite
 
 
 class StochGPMP(OptimizationPlanner):
@@ -75,7 +75,7 @@ class StochGPMP(OptimizationPlanner):
 
         ##############################################
         # Construct cost function
-        self.cost = build_gpmp_cost_composite(
+        self.cost = build_gpmp2_cost_composite(
             robot=robot,
             traj_len=traj_len,
             dt=dt,
