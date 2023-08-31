@@ -23,7 +23,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 2
+    seed = 3
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -80,8 +80,8 @@ if __name__ == "__main__":
     rrt_connect_params = dict(
         **rrt_connect_default_params_env,
         task=task,
-        start_state=start_state,
-        goal_state=goal_state,
+        start_state_pos=start_state,
+        goal_state_pos=goal_state,
         tensor_args=tensor_args,
     )
     sample_based_planner_base = RRTConnect(**rrt_connect_params)
