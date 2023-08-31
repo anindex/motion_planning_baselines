@@ -67,8 +67,8 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    # start_state = torch.tensor([-0.9, -0.9], **tensor_args)
-    # goal_state = torch.tensor([0.8, 0.0], **tensor_args)
+    start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
+    goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
 
     # Construct planner
     num_particles_per_goal = 10

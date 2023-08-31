@@ -25,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 9
+    seed = 11
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
-        use_self_collision_storm=True,
+        # use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
@@ -48,7 +48,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.02,
+        obstacle_cutoff_margin=0.03,
         tensor_args=tensor_args
     )
 
@@ -75,7 +75,11 @@ if __name__ == "__main__":
     # goal_state = torch.tensor([ 0.9791, -0.2869,  2.0436, -0.4489, -0.2500,  1.6288,  2.0535],
     #    device='cuda:0')
 
-    n_trajectories = 4
+
+    print(start_state)
+    print(goal_state)
+
+    n_trajectories = 5
 
     ############### Sample-based planner
     rrt_connect_default_params_env = env.get_rrt_connect_params()
@@ -83,8 +87,8 @@ if __name__ == "__main__":
     rrt_connect_params = dict(
         **rrt_connect_default_params_env,
         task=task,
-        start_state=start_state,
-        goal_state=goal_state,
+        start_state_pos=start_state,
+        goal_state_pos=goal_state,
         tensor_args=tensor_args,
     )
     sample_based_planner_base = RRTConnect(**rrt_connect_params)

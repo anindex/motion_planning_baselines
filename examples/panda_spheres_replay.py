@@ -42,7 +42,7 @@ task = PlanningTask(
 
 # trajs_iters = torch.load('trajs_iters.pt')
 traj_iters_path = 'trajs_iters_free_panda_spheres_GPMP.pt'
-# traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
+traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
 
 traj_iters_base = os.path.splitext(traj_iters_path)[0]
 
@@ -66,7 +66,7 @@ motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,
     color_robots=False,
-    show_goal_configuration=True,
+    show_goal_configuration=False,
     sync_with_real_time=True,
     # show_collision_spheres=True
 )

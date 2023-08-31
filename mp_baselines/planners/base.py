@@ -6,6 +6,7 @@ import torch
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
+from torch_robotics.trajectory.utils import finite_difference_vector
 
 
 class MPPlanner(ABC):
@@ -204,13 +205,8 @@ class OptimizationPlanner(MPPlanner):
         """
         trajs = self._particle_means.clone()
         if self.pos_only:
-            # Linear velocity by forward finite differencing
-            vels = (trajs[..., :-1, :] - trajs[..., 1:, :]) / self.dt
-            # Pad end with zero-vel for planning
-            vels = torch.cat(
-                (vels, torch.zeros_like(vels[..., -1:, :])),
-                dim=0,
-            )
+            # Linear velocity by central finite differencing
+            vels = finite_difference_vector(trajs, dt=self.dt)
             trajs = torch.cat((trajs, vels), dim=1)
         return trajs
 
