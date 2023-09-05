@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
-from mp_baselines.planners.gpmp2 import GPMP2
-from torch_robotics.environments.env_dense_2d import EnvDense2D
-from torch_robotics.environments.env_dense_2d_extra_objects import EnvDense2DExtraObjects
+from mp_baselines.planners.chomp import CHOMP
+from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
+from torch_robotics.environments import EnvDense2D
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
-from torch_robotics.environments.env_narrow_passage_dense_2d import EnvNarrowPassageDense2D
 from torch_robotics.robots.robot_point_mass import RobotPointMass
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -21,7 +20,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 1
+    seed = 3
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -67,48 +66,70 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
-    goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
+    # start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
+    # goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
 
-    # Construct planner
-    num_particles_per_goal = 10
+    multi_goal_states = goal_state.unsqueeze(0)
 
-    default_params_env = env.get_gpmp2_params(robot=robot.name)
+    # Construct cost function
+    default_params_env = env.get_chomp_params(robot=robot)
     traj_len = default_params_env['traj_len']
     dt = default_params_env['dt']
+
+    cost_collisions = []
+    weights_cost_l = []
+    for collision_field in task.get_collision_fields():
+        cost_collisions.append(
+            CostCollision(
+                robot, traj_len,
+                field=collision_field,
+                sigma_coll=1.0,
+                tensor_args=tensor_args
+            )
+        )
+        weights_cost_l.append(10.0)
+
+    cost_func_list = [*cost_collisions]
+    cost_composite = CostComposite(
+        robot, traj_len, cost_func_list,
+        weights_cost_l=weights_cost_l,
+        tensor_args=tensor_args
+    )
+
+    num_particles_per_goal = 10
+    opt_iters = 100
+
     planner_params = dict(
         **default_params_env,
-        robot=robot,
         n_dof=robot.q_dim,
         num_particles_per_goal=num_particles_per_goal,
         start_state=start_state,
         multi_goal_states=goal_state.unsqueeze(0),  # add batch dim for interface,
-        collision_fields=task.get_collision_fields(),
+        cost=cost_composite,
         tensor_args=tensor_args,
     )
-    planner = GPMP2(**planner_params)
+    planner = CHOMP(**planner_params)
 
     # Optimize
-    opt_iters = default_params_env['opt_iters']
     trajs_0 = planner.get_traj()
     trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
     trajs_iters[0] = trajs_0
     with TimerCUDA() as t:
         for i in range(opt_iters):
-            trajs = planner.optimize(opt_iters=1, debug=True)
+            trajs = planner.optimize(debug=True)
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
     # -------------------------------- Visualize ---------------------------------
-    planner_visualizer = PlanningVisualizer(
-        task=task,
-        planner=planner
-    )
-
     print(f'----------------STATISTICS----------------')
     print(f'percentage free trajs: {task.compute_fraction_free_trajs(trajs_iters[-1])*100:.2f}')
     print(f'percentage collision intensity {task.compute_collision_intensity_trajs(trajs_iters[-1])*100:.2f}')
     print(f'success {task.compute_success_free_trajs(trajs_iters[-1])}')
+
+    planner_visualizer = PlanningVisualizer(
+        task=task,
+        planner=planner
+    )
 
     base_file_name = Path(os.path.basename(__file__)).stem
 

@@ -97,7 +97,7 @@ class CHOMP(OptimizationPlanner):
             self,
             initial_particle_means=None,
     ):
-        # Straightline position-trajectory from start to goal with const vel
+        # Straight line position-trajectory from start to goal with const vel
         if initial_particle_means is not None:
             self._particle_means = initial_particle_means.clone()
         else:

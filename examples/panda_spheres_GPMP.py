@@ -81,7 +81,7 @@ if __name__ == "__main__":
     dt = 0.04
     num_particles_per_goal = 10
 
-    default_params_env = env.get_gpmp2_params(robot_name=robot.name)
+    default_params_env = env.get_gpmp2_params(robot=robot.name)
 
     planner_params = dict(
         **default_params_env,

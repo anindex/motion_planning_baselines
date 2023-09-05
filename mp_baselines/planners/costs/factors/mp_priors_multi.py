@@ -134,13 +134,18 @@ class MultiMPPrior:
         dt,
         num_steps,
         dof,
+        set_initial_final_vel_to_zero=True
     ):
         state_traj = torch.zeros(num_steps + 1, 2 * dof, **self.tensor_args)
         mean_vel = (goal_state[:dof] - start_state[:dof]) / (num_steps * dt)
         for i in range(num_steps + 1):
             state_traj[i, :dof] = start_state[:dof] * (num_steps - i) * 1. / num_steps \
                                   + goal_state[:dof] * i * 1./num_steps
-        state_traj[:, dof:] = mean_vel.unsqueeze(0)
+        if set_initial_final_vel_to_zero:
+            # initial and final velocities are set to zero
+            state_traj[1:-1, dof:] = mean_vel.unsqueeze(0)
+        else:
+            state_traj[:, dof:] = mean_vel.unsqueeze(0)
         return state_traj
 
     def get_const_vel_mean(
