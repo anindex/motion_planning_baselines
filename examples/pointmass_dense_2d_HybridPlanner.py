@@ -30,11 +30,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
-        precompute_sdf_obj_fixed=True,
-        sdf_cell_size=0.005,
-        tensor_args=tensor_args
-    )
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
 
     # env = EnvDense2DExtraObjects(
     #     precompute_sdf_obj_fixed=True,
@@ -42,11 +42,11 @@ if __name__ == "__main__":
     #     tensor_args=tensor_args
     # )
 
-    # env = EnvNarrowPassageDense2D(
-    #     precompute_sdf_obj_fixed=True,
-    #     sdf_cell_size=0.005,
-    #     tensor_args=tensor_args
-    # )
+    env = EnvNarrowPassageDense2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPointMass(
         tensor_args=tensor_args
@@ -69,13 +69,17 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    # start_state = torch.tensor([-0.9, -0.9], **tensor_args)
-    # goal_state = torch.tensor([0.8, 0.0], **tensor_args)
+    start_state = torch.tensor([0.8956, 0.0188], device='cuda:0')
+    goal_state = torch.tensor([-0.8838, 0.4582], device='cuda:0')
 
-    n_trajectories = 5
+
+    print(start_state)
+    print(goal_state)
+
+    n_trajectories = 10
 
     ############### Sample-based planner
-    rrt_connect_default_params_env = env.get_rrt_connect_params(robot=robot.name)
+    rrt_connect_default_params_env = env.get_rrt_connect_params(robot=robot)
 
     rrt_connect_params = dict(
         **rrt_connect_default_params_env,
@@ -95,7 +99,7 @@ if __name__ == "__main__":
     )
 
     ############### Optimization-based planner
-    gpmp_default_params_env = env.get_gpmp2_params(robot=robot.name)
+    gpmp_default_params_env = env.get_gpmp2_params(robot=robot)
     traj_len = gpmp_default_params_env['traj_len']
     dt = gpmp_default_params_env['dt']
     # gpmp_default_params_env['opt_iters'] = 150

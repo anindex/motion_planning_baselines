@@ -21,18 +21,18 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 1
+    seed = 3
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
-        precompute_sdf_obj_fixed=True,
-        sdf_cell_size=0.005,
-        tensor_args=tensor_args
-    )
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
 
     # env = EnvDense2DExtraObjects(
     #     precompute_sdf_obj_fixed=True,
@@ -40,11 +40,11 @@ if __name__ == "__main__":
     #     tensor_args=tensor_args
     # )
 
-    # env = EnvNarrowPassageDense2D(
-    #     precompute_sdf_obj_fixed=True,
-    #     sdf_cell_size=0.005,
-    #     tensor_args=tensor_args
-    # )
+    env = EnvNarrowPassageDense2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
+        tensor_args=tensor_args
+    )
 
     robot = RobotPointMass(
         tensor_args=tensor_args
@@ -67,8 +67,11 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
-    goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
+    # start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
+    # goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
+
+    print(start_state)
+    print(goal_state)
 
     # Construct planner
     num_particles_per_goal = 10
