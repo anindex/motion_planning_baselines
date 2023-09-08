@@ -131,7 +131,7 @@ class CostCollision(Cost):
         self.obst_factor = FieldFactor(
             self.n_dof,
             self.sigma_coll,
-            [1, self.traj_len]
+            [1, None]  # take the whole trajectory except for the first point
         )
 
     def eval(self, trajs, q_pos=None, q_vel=None, H_positions=None, **observation):
@@ -389,7 +389,7 @@ class CostGoal(Cost):
         self.goal_factor = FieldFactor(
             self.n_dof,
             self.sigma_goal,
-            [self.traj_len - 1, self.traj_len]   # only take last point
+            [-1, None]   # only take last point
         )
 
     def eval(self, trajs, x_trajs=None, **observation):

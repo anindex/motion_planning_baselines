@@ -12,7 +12,6 @@ class FieldFactor:
         self.sigma = sigma
         self.n_dof = n_dof
         self.traj_range = traj_range
-        self.length = traj_range[1] - traj_range[0]
         self.K = 1. / (sigma**2)
 
     def get_error(
@@ -34,7 +33,9 @@ class FieldFactor:
 
         q_pos_new = q_pos[:, self.traj_range[0]:self.traj_range[1], :]
 
-        error = field.compute_cost(q_pos_new, states, **kwargs).reshape(batch, self.length)
+        length = q_pos_new.shape[-2]
+
+        error = field.compute_cost(q_pos_new, states, **kwargs).reshape(batch, length)
 
         if calc_jacobian:
             H = -torch.autograd.grad(error.sum(), q_trajs, retain_graph=True)[0][:, self.traj_range[0]:self.traj_range[1], :self.n_dof]
