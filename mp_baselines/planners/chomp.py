@@ -50,7 +50,7 @@ class CHOMP(OptimizationPlanner):
 
         self._particle_means = None
         # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
-        self.Sigma_inv = self._get_R_mat()
+        self.Sigma_inv = self._get_R_mat(dt=self.dt, traj_len=self.traj_len, tensor_args=self.tensor_args)
         self.Sigma = torch.inverse(self.Sigma_inv)
         self.reset(initial_particle_means=initial_particle_means)
 
@@ -78,20 +78,27 @@ class CHOMP(OptimizationPlanner):
         R_mat = A_mat.t() @ A_mat
         return R_mat.to(**self.tensor_args)
 
-    def _get_R_mat(self):
+    @classmethod
+    def _get_R_mat(
+            cls,
+            dt=0.01,
+            traj_len=64,
+            tensor_args=None,
+            **kwargs
+    ):
         """
         CHOMP time-correlated Precision matrix.
         Backward finite difference velocity.
         """
-        lower_diag = -torch.diag(torch.ones(self.traj_len - 1), diagonal=-1)
-        diag = 1 * torch.eye(self.traj_len)
+        lower_diag = -torch.diag(torch.ones(traj_len - 1), diagonal=-1)
+        diag = 1 * torch.eye(traj_len)
         K_mat = diag + lower_diag
-        K_mat = torch.cat((K_mat, torch.zeros(1, self.traj_len)), dim=0)
+        K_mat = torch.cat((K_mat, torch.zeros(1, traj_len)), dim=0)
         K_mat[-1, -1] = -1.
-        K_mat = K_mat * 1. / self.dt ** 2
+        K_mat = K_mat * 1. / dt ** 2
         R_mat = K_mat.t() @ K_mat
 
-        return R_mat.to(**self.tensor_args)
+        return R_mat.to(**tensor_args)
 
     def reset(
             self,

@@ -127,16 +127,18 @@ class MultiMPPrior:
         self.Sigma_invs = Sigma_invs_new.clone().detach()
         self.update_dist(self.means, self.Sigma_invs)
 
+    @classmethod
     def const_vel_trajectory(
-        self,
+        cls,
         start_state,
         goal_state,
         dt,
         num_steps,
         dof,
-        set_initial_final_vel_to_zero=True
+        set_initial_final_vel_to_zero=True,
+        tensor_args=None
     ):
-        state_traj = torch.zeros(num_steps + 1, 2 * dof, **self.tensor_args)
+        state_traj = torch.zeros(num_steps + 1, 2 * dof, **tensor_args)
         mean_vel = (goal_state[:dof] - start_state[:dof]) / (num_steps * dt)
         for i in range(num_steps + 1):
             state_traj[i, :dof] = start_state[:dof] * (num_steps - i) * 1. / num_steps \
@@ -167,6 +169,7 @@ class MultiMPPrior:
                     dt,
                     num_steps,
                     dof,
+                    tensor_args=self.tensor_args
                 ))
             return torch.stack(means, dim=0)
         else:

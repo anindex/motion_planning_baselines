@@ -5,6 +5,7 @@ import einops
 import numpy as np
 import torch
 
+from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.factors.field_factor import FieldFactor
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
@@ -65,19 +66,38 @@ class CostComposite(Cost):
         self.cost_l = cost_list
         self.weight_cost_l = weights_cost_l if weights_cost_l is not None else [1.0] * len(cost_list)
 
-    def eval(self, trajs, return_invidual_costs_and_weights=False, **kwargs):
+    def eval(self, trajs, trajs_interpolated=None, return_invidual_costs_and_weights=False, **kwargs):
         trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
 
         if not return_invidual_costs_and_weights:
             cost_total = 0
             for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
-                cost_tmp = weight_cost * cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+                if trajs_interpolated is not None:
+                    # Compute only collision costs with interpolated trajectories.
+                    # Other costs are computed with non-interpolated trajectories, e.g. smoothness
+                    if isinstance(cost, CostCollision):
+                        trajs_tmp = trajs_interpolated
+                    else:
+                        trajs_tmp = trajs
+                else:
+                    trajs_tmp = trajs
+                cost_tmp = weight_cost * cost(trajs_tmp, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
                 cost_total += cost_tmp
             return cost_total
         else:
             cost_l = []
             for cost in self.cost_l:
-                cost_tmp = cost(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+                if trajs_interpolated is not None:
+                    # Compute only collision costs with interpolated trajectories.
+                    # Other costs are computed with non-interpolated trajectories, e.g. smoothness
+                    if isinstance(cost, CostCollision):
+                        trajs_tmp = trajs_interpolated
+                    else:
+                        trajs_tmp = trajs
+                else:
+                    trajs_tmp = trajs
+
+                cost_tmp = cost(trajs_tmp, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
                 cost_l.append(cost_tmp)
 
             if return_invidual_costs_and_weights:
@@ -334,35 +354,57 @@ class CostSmoothnessCHOMP(Cost):
             self,
             robot,
             traj_len,
-            start_state,
             dt,
             **kwargs
     ):
         super().__init__(robot, traj_len, **kwargs)
-        self.start_state = start_state
         self.dt = dt
 
-        self.Sigma_inv = self._get_R_mat()
-
-    def _get_R_mat(self):
-        """
-        CHOMP time-correlated Precision matrix.
-        Backward finite difference velocity.
-        """
-        lower_diag = -torch.diag(torch.ones(self.traj_len - 1), diagonal=-1)
-        diag = 1 * torch.eye(self.traj_len)
-        K_mat = diag + lower_diag
-        K_mat = torch.cat((K_mat, torch.zeros(1, self.traj_len)), dim=0)
-        K_mat[-1, -1] = -1.
-        K_mat = K_mat * 1. / self.dt ** 2
-        R_mat = K_mat.t() @ K_mat
-
-        return R_mat.to(**self.tensor_args)
+        self.Sigma_inv = CHOMP._get_R_mat(dt=dt, traj_len=traj_len, **kwargs)
 
     def eval(self, trajs, **observation):
         R_mat = self.Sigma_inv
-        cost = batched_weighted_dot_prod(trajs, R_mat, trajs).sum()
+        cost = batched_weighted_dot_prod(trajs, R_mat, trajs)
         return cost
+
+    def get_linear_system(self, trajs, **observation):
+        pass
+
+
+class CostJointLimits(Cost):
+
+    def __init__(
+            self,
+            robot,
+            traj_len,
+            eps=np.deg2rad(3),
+            **kwargs
+    ):
+        super().__init__(robot, traj_len, **kwargs)
+
+        self.eps = eps
+
+    def eval(self, trajs, **observation):
+        assert trajs.ndim == 3
+
+        # trajs = trajs.reshape(-1, self.traj_len, self.dim)
+        trajs_pos = self.robot.get_position(trajs)
+
+        idxs_lower = torch.argwhere(trajs_pos < self.robot.q_min + self.eps)
+        cost_lower = torch.pow(
+            self.robot.q_min[idxs_lower[:, 2]] + self.eps - trajs_pos[idxs_lower[:, 0], idxs_lower[:, 1], idxs_lower[:, 2]],
+            2
+        ).sum(-1)
+
+        idxs_upper = torch.argwhere(trajs_pos > self.robot.q_max - self.eps)
+        cost_upper = torch.pow(
+            self.robot.q_max[idxs_upper[:, 2]] - self.eps - trajs_pos[idxs_upper[:, 0], idxs_upper[:, 1], idxs_upper[:, 2]],
+            2
+        ).sum(-1)
+
+        costs = cost_lower + cost_upper
+
+        return costs
 
     def get_linear_system(self, trajs, **observation):
         pass
