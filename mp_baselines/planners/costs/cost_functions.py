@@ -15,11 +15,11 @@ from torch_robotics.trajectory.utils import finite_difference_vector
 
 
 class Cost(ABC):
-    def __init__(self, robot, traj_len, tensor_args=None, **kwargs):
+    def __init__(self, robot, n_support_points, tensor_args=None, **kwargs):
         self.robot = robot
         self.n_dof = robot.q_dim
         self.dim = 2 * self.n_dof  # position + velocity
-        self.traj_len = traj_len
+        self.n_support_points = n_support_points
 
         self.tensor_args = tensor_args
 
@@ -57,12 +57,12 @@ class CostComposite(Cost):
     def __init__(
         self,
         robot,
-        traj_len,
+        n_support_points,
         cost_list,
         weights_cost_l=None,
         **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.cost_l = cost_list
         self.weight_cost_l = weights_cost_l if weights_cost_l is not None else [1.0] * len(cost_list)
 
@@ -135,12 +135,12 @@ class CostCollision(Cost):
     def __init__(
             self,
             robot,
-            traj_len,
+            n_support_points,
             field=None,
             sigma_coll=None,
             **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.field = field
         self.sigma_coll = sigma_coll
 
@@ -192,7 +192,7 @@ class CostCollision(Cost):
                 obstacle_spheres=observation.get('obstacle_spheres', None)
             )
 
-            A = torch.zeros(batch_size, self.traj_len - 1, self.dim * self.traj_len, **self.tensor_args)
+            A = torch.zeros(batch_size, self.n_support_points - 1, self.dim * self.n_support_points, **self.tensor_args)
             A[:, :, :H_obst.shape[-1]] = H_obst
             # shift each row by self.dim
             idxs = torch.arange(A.shape[-1], **self.tensor_args).repeat(A.shape[-2], 1)
@@ -204,7 +204,7 @@ class CostCollision(Cost):
             # https://github.com/anindex/stoch_gpmp/blob/main/stoch_gpmp/costs/cost_functions.py#L275
 
             b = err_obst.unsqueeze(-1)
-            K = self.obst_factor.K * torch.eye((self.traj_len - 1), **self.tensor_args).repeat(batch_size, 1, 1)
+            K = self.obst_factor.K * torch.eye((self.n_support_points - 1), **self.tensor_args).repeat(batch_size, 1, 1)
 
         return A, b, K
 
@@ -214,13 +214,13 @@ class CostGP(Cost):
     def __init__(
         self,
         robot,
-        traj_len,
+        n_support_points,
         start_state,
         dt,
         sigma_params,
         **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.start_state = start_state
         self.dt = dt
 
@@ -242,12 +242,12 @@ class CostGP(Cost):
             self.n_dof,
             self.sigma_gp,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.tensor_args,
         )
 
     def eval(self, trajs, **observation):
-        # trajs = trajs.reshape(-1, self.traj_len, self.dim)
+        # trajs = trajs.reshape(-1, self.n_support_points, self.dim)
         # Start cost
         err_p = self.start_prior.get_error(trajs[:, [0]], calc_jacobian=False)
         w_mat = self.start_prior.K
@@ -268,9 +268,9 @@ class CostGP(Cost):
     
     def get_linear_system(self, trajs, **observation):
         batch_size = trajs.shape[0]
-        A = torch.zeros(batch_size, self.dim * self.traj_len, self.dim * self.traj_len, **self.tensor_args)
-        b = torch.zeros(batch_size, self.dim * self.traj_len, 1, **self.tensor_args)
-        K = torch.zeros(batch_size, self.dim * self.traj_len, self.dim * self.traj_len, **self.tensor_args)
+        A = torch.zeros(batch_size, self.dim * self.n_support_points, self.dim * self.n_support_points, **self.tensor_args)
+        b = torch.zeros(batch_size, self.dim * self.n_support_points, 1, **self.tensor_args)
+        K = torch.zeros(batch_size, self.dim * self.n_support_points, self.dim * self.n_support_points, **self.tensor_args)
 
         # Start prior factor
         err_p, H_p = self.start_prior.get_error(trajs[:, [0]])
@@ -297,13 +297,13 @@ class CostGPTrajectory(Cost):
     def __init__(
             self,
             robot,
-            traj_len,
+            n_support_points,
             start_state,
             dt,
             sigma_gp=None,
             **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.start_state = start_state
         self.dt = dt
 
@@ -317,12 +317,12 @@ class CostGPTrajectory(Cost):
             self.n_dof,
             self.sigma_gp,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.tensor_args,
         )
 
     def eval(self, trajs, **observation):
-        # trajs = trajs.reshape(-1, self.traj_len, self.dim)
+        # trajs = trajs.reshape(-1, self.n_support_points, self.dim)
 
         # GP cost
         err_gp = self.gp_prior.get_error(trajs, calc_jacobian=False)
@@ -353,14 +353,14 @@ class CostSmoothnessCHOMP(Cost):
     def __init__(
             self,
             robot,
-            traj_len,
+            n_support_points,
             dt,
             **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.dt = dt
 
-        self.Sigma_inv = CHOMP._get_R_mat(dt=dt, traj_len=traj_len, **kwargs)
+        self.Sigma_inv = CHOMP._get_R_mat(dt=dt, n_support_points=n_support_points, **kwargs)
 
     def eval(self, trajs, **observation):
         R_mat = self.Sigma_inv
@@ -376,18 +376,18 @@ class CostJointLimits(Cost):
     def __init__(
             self,
             robot,
-            traj_len,
+            n_support_points,
             eps=np.deg2rad(3),
             **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
 
         self.eps = eps
 
     def eval(self, trajs, **observation):
         assert trajs.ndim == 3
 
-        # trajs = trajs.reshape(-1, self.traj_len, self.dim)
+        # trajs = trajs.reshape(-1, self.n_support_points, self.dim)
         trajs_pos = self.robot.get_position(trajs)
 
         idxs_lower = torch.argwhere(trajs_pos < self.robot.q_min + self.eps)
@@ -415,12 +415,12 @@ class CostGoal(Cost):
     def __init__(
         self,
         robot,
-        traj_len,
+        n_support_points,
         field=None,
         sigma_goal=None,
         **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.field = field
         self.sigma_goal = sigma_goal
 
@@ -453,7 +453,7 @@ class CostGoal(Cost):
         A, b, K = None, None, None
         if self.field is not None:
             batch_size = trajs.shape[0]
-            A = torch.zeros(batch_size, 1, self.dim * self.traj_len, **self.tensor_args)
+            A = torch.zeros(batch_size, 1, self.dim * self.n_support_points, **self.tensor_args)
             err_goal, H_goal = self.goal_factor.get_error(
                 trajs,
                 self.field,
@@ -471,14 +471,14 @@ class CostGoalPrior(Cost):
     def __init__(
         self,
         robot,
-        traj_len,
+        n_support_points,
         multi_goal_states=None,  # num_goal x n_dim (pos + vel)
         num_particles_per_goal=None,
         num_samples=None,
         sigma_goal_prior=None,
         **kwargs
     ):
-        super().__init__(robot, traj_len, **kwargs)
+        super().__init__(robot, n_support_points, **kwargs)
         self.multi_goal_states = multi_goal_states
         self.num_goals = multi_goal_states.shape[0]
         self.num_particles_per_goal = num_particles_per_goal
@@ -504,7 +504,7 @@ class CostGoalPrior(Cost):
     def eval(self, trajs, **observation):
         costs = 0
         if self.multi_goal_states is not None:
-            x = trajs.reshape(self.num_goals, self.num_particles_per_goal * self.num_samples, self.traj_len, self.dim)
+            x = trajs.reshape(self.num_goals, self.num_particles_per_goal * self.num_samples, self.n_support_points, self.dim)
             costs = torch.zeros(self.num_goals, self.num_particles_per_goal * self.num_samples, **self.tensor_args)
             # TODO: remove this for loop
             for i in range(self.num_goals):
@@ -521,8 +521,8 @@ class CostGoalPrior(Cost):
         if self.multi_goal_states is not None:
             npg = self.num_particles_per_goal
             batch_size = npg * self.num_goals
-            x = trajs.reshape(self.num_goals, self.num_particles_per_goal, self.traj_len, self.dim)
-            A = torch.zeros(batch_size, self.dim, self.dim * self.traj_len, **self.tensor_args)
+            x = trajs.reshape(self.num_goals, self.num_particles_per_goal, self.n_support_points, self.dim)
+            A = torch.zeros(batch_size, self.dim, self.dim * self.n_support_points, **self.tensor_args)
             b = torch.zeros(batch_size, self.dim, 1, **self.tensor_args)
             K = torch.zeros(batch_size, self.dim, self.dim, **self.tensor_args)
             # TODO: remove this for loop

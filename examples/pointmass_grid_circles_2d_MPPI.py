@@ -50,14 +50,14 @@ if __name__ == "__main__":
 
     multi_goal_states = goal_state.unsqueeze(0)
 
-    traj_len = 64
+    n_support_points = 64
     dt = 0.04
 
     opt_iters = 20
 
     mppi_params = dict(
         num_ctrl_samples=32,
-        rollout_steps=traj_len,
+        rollout_steps=n_support_points,
         control_std=[0.15, 0.15],
         temp=1.,
         opt_iters=1,
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     for collision_field in task.get_collision_fields():
         cost_collisions.append(
             CostCollision(
-                robot, traj_len,
+                robot, n_support_points,
                 field=collision_field,
                 sigma_coll=sigma_coll,
                 tensor_args=tensor_args
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     cost_func_list = [*cost_collisions]
     cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
+        robot, n_support_points, cost_func_list,
         tensor_args=tensor_args
     )
 
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         'cost': cost_composite,
     }
 
-    vel_iters = torch.empty((opt_iters, 1, traj_len, planner.control_dim), **tensor_args)
+    vel_iters = torch.empty((opt_iters, 1, n_support_points, planner.control_dim), **tensor_args)
     with TimerCUDA() as t:
         for i in range(opt_iters):
             planner.optimize(**observation)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
     # Reconstruct positions
-    pos_iters = torch.empty((opt_iters, 1, traj_len, planner.state_dim), **tensor_args)
+    pos_iters = torch.empty((opt_iters, 1, n_support_points, planner.state_dim), **tensor_args)
     for i in range(opt_iters):
         # Roll-out dynamics to get positions
         pos_trajs = planner.get_state_trajectories_rollout(controls=vel_iters[i, 0].unsqueeze(0), **observation).squeeze()
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     planner_visualizer.animate_opt_iters_robots(

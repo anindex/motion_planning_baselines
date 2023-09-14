@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Construct cost function
     default_params_env = env.get_chomp_params(robot=robot)
-    traj_len = default_params_env['traj_len']
+    n_support_points = default_params_env['n_support_points']
     dt = default_params_env['dt']
 
     cost_collisions = []
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     for collision_field in task.get_collision_fields():
         cost_collisions.append(
             CostCollision(
-                robot, traj_len,
+                robot, n_support_points,
                 field=collision_field,
                 sigma_coll=1.0,
                 tensor_args=tensor_args
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     cost_func_list = [*cost_collisions]
     cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
+        robot, n_support_points, cost_func_list,
         weights_cost_l=weights_cost_l,
         tensor_args=tensor_args
     )
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     planner_visualizer.animate_opt_iters_robots(

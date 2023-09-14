@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     multi_goal_states = goal_state.unsqueeze(0)
 
-    traj_len = 64
+    n_support_points = 64
     dt = 0.04
 
     # Construct cost function
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for collision_field in task.get_collision_fields():
         cost_collisions.append(
             CostCollision(
-                robot, traj_len,
+                robot, n_support_points,
                 field=collision_field,
                 sigma_coll=1.0,
                 tensor_args=tensor_args
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     cost_func_list = [*cost_collisions]
     cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
+        robot, n_support_points, cost_func_list,
         weights_cost_l=weights_cost_l,
         tensor_args=tensor_args
     )
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
     planner_params = dict(
         n_dof=robot.q_dim,
-        traj_len=traj_len,
+        n_support_points=n_support_points,
         num_particles_per_goal=num_particles_per_goal,
         opt_iters=1,  # Keep this 1 for visualization
         dt=dt,
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     plt.show()

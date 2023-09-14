@@ -11,7 +11,7 @@ class CHOMP(OptimizationPlanner):
     def __init__(
             self,
             n_dof: int,
-            traj_len: int,
+            n_support_points: int,
             num_particles_per_goal: int,
             opt_iters: int,
             dt: float,
@@ -30,7 +30,7 @@ class CHOMP(OptimizationPlanner):
     ):
         super(CHOMP, self).__init__(name='CHOMP',
                                     n_dof=n_dof,
-                                    traj_len=traj_len,
+                                    n_support_points=n_support_points,
                                     num_particles_per_goal=num_particles_per_goal,
                                     opt_iters=opt_iters,
                                     dt=dt,
@@ -49,8 +49,8 @@ class CHOMP(OptimizationPlanner):
         self.grad_clip = grad_clip
 
         self._particle_means = None
-        # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
-        self.Sigma_inv = self._get_R_mat(dt=self.dt, traj_len=self.traj_len, tensor_args=self.tensor_args)
+        # Precision matrix, shape: [ctrl_dim, n_support_points, n_support_points]
+        self.Sigma_inv = self._get_R_mat(dt=self.dt, n_support_points=self.n_support_points, tensor_args=self.tensor_args)
         self.Sigma = torch.inverse(self.Sigma_inv)
         self.reset(initial_particle_means=initial_particle_means)
 
@@ -62,14 +62,14 @@ class CHOMP(OptimizationPlanner):
         STOMP time-correlated Precision matrix.
         Central finite difference velocity.
         """
-        upper_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=1)
-        lower_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=-1,)
-        diag = -2 * torch.eye(self.traj_len)
+        upper_diag = torch.diag(torch.ones(self.n_support_points - 1), diagonal=1)
+        lower_diag = torch.diag(torch.ones(self.n_support_points - 1), diagonal=-1,)
+        diag = -2 * torch.eye(self.n_support_points)
         A_mat = upper_diag + diag + lower_diag
         A_mat = torch.cat(
-            (torch.zeros(1, self.traj_len),
+            (torch.zeros(1, self.n_support_points),
              A_mat,
-             torch.zeros(1, self.traj_len)),
+             torch.zeros(1, self.n_support_points)),
             dim=0,
         )
         A_mat[0, 0] = 1.
@@ -82,7 +82,7 @@ class CHOMP(OptimizationPlanner):
     def _get_R_mat(
             cls,
             dt=0.01,
-            traj_len=64,
+            n_support_points=64,
             tensor_args=None,
             **kwargs
     ):
@@ -90,10 +90,10 @@ class CHOMP(OptimizationPlanner):
         CHOMP time-correlated Precision matrix.
         Backward finite difference velocity.
         """
-        lower_diag = -torch.diag(torch.ones(traj_len - 1), diagonal=-1)
-        diag = 1 * torch.eye(traj_len)
+        lower_diag = -torch.diag(torch.ones(n_support_points - 1), diagonal=-1)
+        diag = 1 * torch.eye(n_support_points)
         K_mat = diag + lower_diag
-        K_mat = torch.cat((K_mat, torch.zeros(1, traj_len)), dim=0)
+        K_mat = torch.cat((K_mat, torch.zeros(1, n_support_points)), dim=0)
         K_mat[-1, -1] = -1.
         K_mat = K_mat * 1. / dt ** 2
         R_mat = K_mat.t() @ K_mat

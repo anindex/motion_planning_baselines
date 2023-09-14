@@ -6,7 +6,8 @@ import numpy as np
 import torch
 
 from mp_baselines.planners.base import OptimizationPlanner
-from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite
+from mp_baselines.planners.costs.cost_functions import CostGP, CostGoalPrior, CostCollision, CostComposite, \
+    CostJointLimits
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
@@ -21,7 +22,7 @@ from torch_robotics.torch_utils.torch_timer import TimerCUDA
 
 def build_gpmp2_cost_composite(
     robot=None,
-    traj_len=None,
+    n_support_points=None,
     dt=None,
     start_state=None,
     multi_goal_states=None,
@@ -48,7 +49,7 @@ def build_gpmp2_cost_composite(
     )
     start_state_zero_vel = torch.cat((start_state, torch.zeros(start_state.nelement(), **tensor_args)))
     cost_gp_prior = CostGP(
-        robot, traj_len, start_state_zero_vel, dt,
+        robot, n_support_points, start_state_zero_vel, dt,
         cost_sigmas,
         tensor_args=tensor_args
     )
@@ -59,7 +60,7 @@ def build_gpmp2_cost_composite(
         multi_goal_states_zero_vel = torch.cat((multi_goal_states, torch.zeros_like(multi_goal_states)),
                                                dim=-1).unsqueeze(0)  # add batch dim for interface
         cost_goal_prior = CostGoalPrior(
-            robot, traj_len, multi_goal_states=multi_goal_states_zero_vel,
+            robot, n_support_points, multi_goal_states=multi_goal_states_zero_vel,
             num_particles_per_goal=num_particles_per_goal,
             num_samples=num_samples,
             sigma_goal_prior=sigma_goal_prior,
@@ -70,7 +71,7 @@ def build_gpmp2_cost_composite(
     # Collision costs
     for collision_field in collision_fields:
         cost_collision = CostCollision(
-            robot, traj_len,
+            robot, n_support_points,
             field=collision_field,
             sigma_coll=sigma_coll,
             tensor_args=tensor_args
@@ -82,7 +83,7 @@ def build_gpmp2_cost_composite(
         cost_func_list.append(*extra_costs)
 
     cost_composite = CostComposite(
-        robot, traj_len, cost_func_list,
+        robot, n_support_points, cost_func_list,
         tensor_args=tensor_args
     )
     return cost_composite
@@ -94,7 +95,7 @@ class GPMP2(OptimizationPlanner):
             self,
             robot=None,
             n_dof: int = None,
-            traj_len: int = None,
+            n_support_points: int = None,
             num_particles_per_goal: int = None,
             opt_iters: int = None,
             dt: float = None,
@@ -113,7 +114,7 @@ class GPMP2(OptimizationPlanner):
         super(GPMP2, self).__init__(
             name='GPMP',
             n_dof=n_dof,
-            traj_len=traj_len,
+            n_support_points=n_support_points,
             num_particles_per_goal=num_particles_per_goal,
             opt_iters=opt_iters,
             dt=dt,
@@ -142,7 +143,7 @@ class GPMP2(OptimizationPlanner):
 
         self.solver_params = solver_params
 
-        self.N = self.d_state_opt * self.traj_len
+        self.N = self.d_state_opt * self.n_support_points
 
         self._mean = None
         self._weights = None
@@ -152,7 +153,7 @@ class GPMP2(OptimizationPlanner):
         # Construct cost function
         self.cost = build_gpmp2_cost_composite(
             robot=robot,
-            traj_len=traj_len,
+            n_support_points=n_support_points,
             dt=dt,
             start_state=start_state,
             multi_goal_states=multi_goal_states,
@@ -206,7 +207,7 @@ class GPMP2(OptimizationPlanner):
             self.n_dof,
             self.sigma_gp_init,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.tensor_args,
         )
 
@@ -252,7 +253,7 @@ class GPMP2(OptimizationPlanner):
             goal_states=None,
     ):
         return MultiMPPrior(
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.dt,
             2 * self.n_dof,
             self.n_dof,
@@ -308,7 +309,7 @@ class GPMP2(OptimizationPlanner):
 
         d_theta = d_theta.view(
                 self.num_particles,
-                self.traj_len,
+                self.n_support_points,
                 self.d_state_opt,
             )
 

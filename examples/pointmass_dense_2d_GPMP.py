@@ -28,11 +28,11 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    # env = EnvDense2D(
-    #     precompute_sdf_obj_fixed=True,
-    #     sdf_cell_size=0.005,
-    #     tensor_args=tensor_args
-    # )
+    env = EnvDense2D(
+        precompute_sdf_obj_fixed=True,
+        sdf_cell_size=0.005,
+        tensor_args=tensor_args
+    )
 
     # env = EnvDense2DExtraObjects(
     #     precompute_sdf_obj_fixed=True,
@@ -40,11 +40,11 @@ if __name__ == "__main__":
     #     tensor_args=tensor_args
     # )
 
-    env = EnvNarrowPassageDense2D(
-        precompute_sdf_obj_fixed=True,
-        sdf_cell_size=0.005,
-        tensor_args=tensor_args
-    )
+    # env = EnvNarrowPassageDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
 
     robot = RobotPointMass(
         tensor_args=tensor_args
@@ -67,8 +67,8 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    # start_state = torch.tensor([-0.2275, -0.0472], **tensor_args)
-    # goal_state = torch.tensor([0.5302, 0.9507], **tensor_args)
+    # start_state = torch.tensor([0.8956, 0.0188], **tensor_args)
+    # goal_state = torch.tensor([-0.8838,  0.4582], **tensor_args)
 
     print(start_state)
     print(goal_state)
@@ -76,8 +76,8 @@ if __name__ == "__main__":
     # Construct planner
     num_particles_per_goal = 10
 
-    default_params_env = env.get_gpmp2_params(robot=robot.name)
-    traj_len = default_params_env['traj_len']
+    default_params_env = env.get_gpmp2_params(robot=robot)
+    n_support_points = default_params_env['n_support_points']
     dt = default_params_env['dt']
     planner_params = dict(
         **default_params_env,
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     planner_visualizer.animate_opt_iters_robots(

@@ -74,7 +74,7 @@ if __name__ == "__main__":
     )
 
     ############### Optimization-based planner
-    traj_len = 128
+    n_support_points = 128
     dt = 0.04
 
     gpmp_default_params_env = env.get_gpmp2_params()
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         **gpmp_default_params_env,
         robot=robot,
         n_dof=robot.q_dim,
-        traj_len=traj_len,
+        n_support_points=n_support_points,
         num_particles_per_goal=n_trajectories,
         dt=dt,
         start_state=start_state,
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     planner_visualizer.animate_opt_iters_robots(

@@ -10,7 +10,7 @@ class STOMP(OptimizationPlanner):
     def __init__(
             self,
             n_dof: int,
-            traj_len: int,
+            n_support_points: int,
             num_particles_per_goal: int,
             num_samples: int,
             opt_iters: int,
@@ -32,7 +32,7 @@ class STOMP(OptimizationPlanner):
     ):
         super(STOMP, self).__init__(name='STOMP',
                                     n_dof=n_dof,
-                                    traj_len=traj_len,
+                                    n_support_points=n_support_points,
                                     num_particles_per_goal=num_particles_per_goal,
                                     opt_iters=opt_iters,
                                     dt=dt,
@@ -59,7 +59,7 @@ class STOMP(OptimizationPlanner):
         self._weights = None
         self._sample_dist = None
 
-        # Precision matrix, shape: [ctrl_dim, traj_len, traj_len]
+        # Precision matrix, shape: [ctrl_dim, n_support_points, n_support_points]
         self.Sigma_inv = self._get_R_mat()
         self.Sigma = torch.inverse(self.Sigma_inv)
         self.reset(initial_particle_means=initial_particle_means)
@@ -69,14 +69,14 @@ class STOMP(OptimizationPlanner):
         """
         STOMP time-correlated Precision matrix.
         """
-        upper_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=1)
-        lower_diag = torch.diag(torch.ones(self.traj_len - 1), diagonal=-1,)
-        diag = -2 * torch.eye(self.traj_len)
+        upper_diag = torch.diag(torch.ones(self.n_support_points - 1), diagonal=1)
+        lower_diag = torch.diag(torch.ones(self.n_support_points - 1), diagonal=-1,)
+        diag = -2 * torch.eye(self.n_support_points)
         A_mat = upper_diag + diag + lower_diag
         A_mat = torch.cat(
-            (torch.zeros(1, self.traj_len),
+            (torch.zeros(1, self.n_support_points),
              A_mat,
-             torch.zeros(1, self.traj_len)),
+             torch.zeros(1, self.n_support_points)),
             dim=0,
         )
         A_mat[0, 0] = 1.
@@ -90,16 +90,16 @@ class STOMP(OptimizationPlanner):
             Additive Gaussian noise distribution over 1-dimensional trajectory.
         """
         self._noise_dist = dist.MultivariateNormal(
-            torch.zeros(self.num_particles, self.traj_len, **self.tensor_args),
+            torch.zeros(self.num_particles, self.n_support_points, **self.tensor_args),
             precision_matrix=self.Sigma_inv,
         )
 
     def sample(self):
         """
             Generate trajectory samples from Gaussian control dist.
-            Return: position-trajectory samples, of shape: [num_particles, num_samples, traj_len, n_dof]
+            Return: position-trajectory samples, of shape: [num_particles, num_samples, n_support_points, n_dof]
         """
-        noise = self._noise_dist.sample((self.num_samples, self.d_state_opt)).transpose(0, 2).transpose(1, 3).transpose(1, 2)  # [num_particles, num_samples, traj_len, n_dof]
+        noise = self._noise_dist.sample((self.num_samples, self.d_state_opt)).transpose(0, 2).transpose(1, 3).transpose(1, 2)  # [num_particles, num_samples, n_support_points, n_dof]
 
         # Force Bound to zero ##
         noise[..., -1, :] = 0
@@ -124,7 +124,7 @@ class STOMP(OptimizationPlanner):
         start_state,
         goal_state,
     ):
-        num_steps = self.traj_len - 1
+        num_steps = self.n_support_points - 1
         state_traj = torch.zeros(num_steps + 1, self.d_state_opt, **self.tensor_args)
         for i in range(num_steps + 1):
             state_traj[i, :self.n_dof] = start_state[:self.n_dof] * (num_steps - i) * 1. / num_steps \

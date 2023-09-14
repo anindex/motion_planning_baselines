@@ -49,9 +49,9 @@ class HybridPlanner(MPPlanner):
                 if traj is None:
                     traj = tensor_linspace_v1(
                         self.sample_based_planner.start_state_pos, self.sample_based_planner.goal_state_pos,
-                        steps=self.opt_based_planner.traj_len).T
+                        steps=self.opt_based_planner.n_support_points).T
                 traj_pos, traj_vel = smoothen_trajectory(
-                    traj, traj_len=self.opt_based_planner.traj_len, dt=self.opt_based_planner.dt,
+                    traj, n_support_points=self.opt_based_planner.n_support_points, dt=self.opt_based_planner.dt,
                     set_average_velocity=True, tensor_args=self.tensor_args
                 )
                 # Reshape for gpmp/sgpmp interface

@@ -13,6 +13,7 @@ from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environments.env_dense_2d import EnvDense2D
 from torch_robotics.environments.env_dense_2d_extra_objects import EnvDense2DExtraObjects
 from torch_robotics.environments.env_narrow_passage_dense_2d import EnvNarrowPassageDense2D
+from torch_robotics.environments.env_narrow_passage_dense_2d_extra_objects import EnvNarrowPassageDense2DExtraObjects
 from torch_robotics.robots.robot_point_mass import RobotPointMass
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -23,7 +24,7 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 3
+    seed = 1234
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -69,8 +70,8 @@ if __name__ == "__main__":
         if torch.linalg.norm(start_state - goal_state) > 1.0:
             break
 
-    start_state = torch.tensor([0.8956, 0.0188], device='cuda:0')
-    goal_state = torch.tensor([-0.8838, 0.4582], device='cuda:0')
+    # start_state = torch.tensor([0.8956, 0.0188], device='cuda:0')
+    # goal_state = torch.tensor([-0.8838, 0.4582], device='cuda:0')
 
 
     print(start_state)
@@ -100,7 +101,7 @@ if __name__ == "__main__":
 
     ############### Optimization-based planner
     gpmp_default_params_env = env.get_gpmp2_params(robot=robot)
-    traj_len = gpmp_default_params_env['traj_len']
+    n_support_points = gpmp_default_params_env['n_support_points']
     dt = gpmp_default_params_env['dt']
     # gpmp_default_params_env['opt_iters'] = 150
 
@@ -167,7 +168,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=traj_len*dt
+        anim_time=n_support_points*dt
     )
 
     planner_visualizer.animate_opt_iters_robots(

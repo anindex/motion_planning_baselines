@@ -18,7 +18,7 @@ class StochGPMP(OptimizationPlanner):
             self,
             robot=None,
             n_dof: int = None,
-            traj_len: int = None,
+            n_support_points: int = None,
             num_particles_per_goal: int = None,
             opt_iters: int = None,
             dt: float = None,
@@ -39,7 +39,7 @@ class StochGPMP(OptimizationPlanner):
         super(StochGPMP, self).__init__(
             name='StochGPMP',
             n_dof=n_dof,
-            traj_len=traj_len,
+            n_support_points=n_support_points,
             num_particles_per_goal=num_particles_per_goal,
             opt_iters=opt_iters,
             dt=dt,
@@ -77,7 +77,7 @@ class StochGPMP(OptimizationPlanner):
         # Construct cost function
         self.cost = build_gpmp2_cost_composite(
             robot=robot,
-            traj_len=traj_len,
+            n_support_points=n_support_points,
             dt=dt,
             start_state=start_state,
             multi_goal_states=multi_goal_states,
@@ -150,7 +150,7 @@ class StochGPMP(OptimizationPlanner):
             self.n_dof,
             self.sigma_gp_init,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.tensor_args,
         )
 
@@ -178,7 +178,7 @@ class StochGPMP(OptimizationPlanner):
             self.n_dof,
             self.sigma_gp_sample,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.tensor_args,
         )
 
@@ -199,12 +199,12 @@ class StochGPMP(OptimizationPlanner):
         start_state,
         multi_goal_states,
     ):
-        traj_dim = (multi_goal_states.shape[0], self.num_particles_per_goal, self.traj_len, self.d_state_opt)
+        traj_dim = (multi_goal_states.shape[0], self.num_particles_per_goal, self.n_support_points, self.d_state_opt)
         state_traj = torch.zeros(traj_dim, **self.tensor_args)
-        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:self.n_dof]) / (self.traj_len * self.dt)
-        for i in range(self.traj_len):
-            interp_state = start_state[:self.n_dof] * (self.traj_len - i - 1) / (self.traj_len - 1) \
-                                  + multi_goal_states[:, :self.n_dof] * i / (self.traj_len - 1)
+        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:self.n_dof]) / (self.n_support_points * self.dt)
+        for i in range(self.n_support_points):
+            interp_state = start_state[:self.n_dof] * (self.n_support_points - i - 1) / (self.n_support_points - 1) \
+                                  + multi_goal_states[:, :self.n_dof] * i / (self.n_support_points - 1)
             state_traj[:, :, i, :self.n_dof] = interp_state.unsqueeze(1)
         state_traj[:, :, :, self.n_dof:] = mean_vel.unsqueeze(1).unsqueeze(1)
         return state_traj
@@ -219,7 +219,7 @@ class StochGPMP(OptimizationPlanner):
             goal_states=None,
     ):
         return MultiMPPrior(
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.dt,
             2 * self.n_dof,
             self.n_dof,
@@ -236,8 +236,8 @@ class StochGPMP(OptimizationPlanner):
         costs = self.cost.eval(self.state_samples, **observation).reshape(self.num_particles, self.num_samples)
 
         # Add cost from importance-sampling ratio
-        V = self.state_samples.view(-1, self.num_samples, self.traj_len * self.d_state_opt)  # flatten trajectories
-        U = self._particle_means.view(-1, 1, self.traj_len * self.d_state_opt)
+        V = self.state_samples.view(-1, self.num_samples, self.n_support_points * self.d_state_opt)  # flatten trajectories
+        U = self._particle_means.view(-1, 1, self.n_support_points * self.d_state_opt)
         costs += self.temperature * (V @ self.Sigma_inv @ U.transpose(1, 2)).squeeze(2)
         return costs
 

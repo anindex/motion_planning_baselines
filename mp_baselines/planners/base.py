@@ -63,7 +63,7 @@ class OptimizationPlanner(MPPlanner):
         self,
         name: str = 'OptimizationPlanner',
         n_dof: int = None,
-        traj_len: int = None,
+        n_support_points: int = None,
         num_particles_per_goal: int = None,
         opt_iters: int = None,
         dt: float = None,
@@ -80,7 +80,7 @@ class OptimizationPlanner(MPPlanner):
         super().__init__(name, tensor_args, **kwargs)
         self.n_dof = n_dof
         self.dim = 2 * self.n_dof
-        self.traj_len = traj_len
+        self.n_support_points = n_support_points
         self.num_particles_per_goal = num_particles_per_goal
         self.opt_iters = opt_iters
         self.dt = dt
@@ -123,7 +123,7 @@ class OptimizationPlanner(MPPlanner):
         if tensor_args is None:
             tensor_args = self.tensor_args
         return MultiMPPrior(
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.dt,
             self.dim,
             self.n_dof,
@@ -141,13 +141,13 @@ class OptimizationPlanner(MPPlanner):
         start_state,
         multi_goal_states,
     ):
-        traj_dim = (multi_goal_states.shape[0], self.traj_len, self.dim)
+        traj_dim = (multi_goal_states.shape[0], self.n_support_points, self.dim)
         state_traj = torch.zeros(traj_dim, **self.tensor_args)
-        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.traj_len * self.dt)
-        for i in range(self.traj_len):
-            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.traj_len - i - 1) / (self.traj_len - 1) \
-                                  + multi_goal_states[:, :self.n_dof] * i / (self.traj_len - 1)
-        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.traj_len, 1)
+        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.n_support_points * self.dt)
+        for i in range(self.n_support_points):
+            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.n_support_points - i - 1) / (self.n_support_points - 1) \
+                                  + multi_goal_states[:, :self.n_dof] * i / (self.n_support_points - 1)
+        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.n_support_points, 1)
         return state_traj
 
     def get_random_trajs(self):
@@ -171,7 +171,7 @@ class OptimizationPlanner(MPPlanner):
             self.n_dof,
             self.sigma_gp_init,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             tensor_args,
         )
 
