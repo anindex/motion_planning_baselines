@@ -78,7 +78,13 @@ if __name__ == "__main__":
 
     default_params_env = env.get_gpmp2_params(robot=robot)
     n_support_points = default_params_env['n_support_points']
+
+    duration = 2  # sec
+    default_params_env['dt'] = duration / n_support_points
     dt = default_params_env['dt']
+
+    default_params_env['sigma_gp_init'] = 1e-2
+
     planner_params = dict(
         **default_params_env,
         robot=robot,
