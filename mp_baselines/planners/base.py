@@ -64,6 +64,7 @@ class OptimizationPlanner(MPPlanner):
         name: str = 'OptimizationPlanner',
         n_dof: int = None,
         n_support_points: int = None,
+        n_interpolated_points: int = None,
         num_particles_per_goal: int = None,
         opt_iters: int = None,
         dt: float = None,
@@ -81,6 +82,7 @@ class OptimizationPlanner(MPPlanner):
         self.n_dof = n_dof
         self.dim = 2 * self.n_dof
         self.n_support_points = n_support_points
+        self.n_interpolated_points = n_interpolated_points
         self.num_particles_per_goal = num_particles_per_goal
         self.opt_iters = opt_iters
         self.dt = dt

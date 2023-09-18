@@ -96,6 +96,7 @@ class GPMP2(OptimizationPlanner):
             robot=None,
             n_dof: int = None,
             n_support_points: int = None,
+            n_interpolated_points: int = None,
             num_particles_per_goal: int = None,
             opt_iters: int = None,
             dt: float = None,
@@ -276,7 +277,7 @@ class GPMP2(OptimizationPlanner):
             opt_iters = self.opt_iters
 
         for opt_step in range(opt_iters):
-            b, K = self._step(**observation)
+            b, K = self._step(debug=debug, **observation)
 
         self.costs = self._get_costs(b, K)
 
@@ -291,8 +292,14 @@ class GPMP2(OptimizationPlanner):
         curr_traj = self._get_traj()
         return curr_traj
 
-    def _step(self, **observation):
-        A, b, K = self.cost.get_linear_system(self._particle_means, **observation)
+    def _step(self, debug=False, **observation):
+        with TimerCUDA() as t_grad:
+            A, b, K = self.cost.get_linear_system(
+                self._particle_means,
+                n_interpolated_points=self.n_interpolated_points,
+                **observation)
+        if debug:
+            print(f't_grad {t_grad}')
 
         J_t_J, g = self._get_grad_terms(
             A, b, K,
@@ -302,10 +309,13 @@ class GPMP2(OptimizationPlanner):
             sparse_computation_block_diag=self.solver_params.get('sparse_computation_block_diag', False)
         )
 
-        d_theta = self.get_torch_solve(
-            J_t_J, g,
-            method=self.solver_params['method'],
-        )
+        with TimerCUDA() as t_solve:
+            d_theta = self.get_torch_solve(
+                J_t_J, g,
+                method=self.solver_params['method'],
+            )
+        if debug:
+            print(f't_solve {t_solve}')
 
         d_theta = d_theta.view(
                 self.num_particles,

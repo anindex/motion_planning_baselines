@@ -10,6 +10,7 @@ from mp_baselines.planners.costs.factors.field_factor import FieldFactor
 from mp_baselines.planners.costs.factors.gp_factor import GPFactor
 from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
 from torch_robotics.torch_kinematics_tree.geometrics.utils import link_pos_from_link_tensor
+from torch_robotics.torch_planning_objectives.fields.distance_fields import interpolate_points_v1
 from torch_robotics.torch_utils.torch_utils import batched_weighted_dot_prod
 from torch_robotics.trajectory.utils import finite_difference_vector
 
@@ -103,15 +104,28 @@ class CostComposite(Cost):
             if return_invidual_costs_and_weights:
                 return cost_l, self.weight_cost_l
 
-    def get_linear_system(self, trajs, **kwargs):
+    def get_linear_system(self, trajs, n_interpolated_points=None, **kwargs):
         trajs.requires_grad = True
+        # TODO - join fk map into one call for trajs and trajs_interp
         trajs, q_pos, q_vel, H_positions = self.get_q_pos_vel_and_fk_map(trajs)
+
+        # Upsample trajectory for finer collision checking
+        # Interpolate in joint space
+        # TODO - change from linear interpolation to GP interpolation
+        if n_interpolated_points is None:
+            trajs_interp, q_pos_interp, q_vel_interp, H_positions_interp = None, None, None, None
+        else:
+            trajs_interp = interpolate_points_v1(trajs, n_interpolated_points)
+            trajs_interp, q_pos_interp, q_vel_interp, H_positions_interp = self.get_q_pos_vel_and_fk_map(trajs_interp)
 
         batch_size = trajs.shape[0]
         As, bs, Ks = [], [], []
         optim_dim = 0
         for cost, weight_cost in zip(self.cost_l, self.weight_cost_l):
-            A, b, K = cost.get_linear_system(trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions, **kwargs)
+            A, b, K = cost.get_linear_system(
+                trajs, q_pos=q_pos, q_vel=q_vel, H_positions=H_positions,
+                trajs_interp=trajs_interp, q_pos_interp=q_pos_interp, q_vel_interp=q_vel_interp, H_positions_interp=H_positions_interp,
+                **kwargs)
             if A is None or b is None or K is None:
                 continue
             optim_dim += A.shape[1]
@@ -174,7 +188,9 @@ class CostCollision(Cost):
 
         return costs
 
-    def get_linear_system(self, trajs, q_pos=None, q_vel=None, H_positions=None, **observation):
+    def get_linear_system(self, trajs, q_pos=None, q_vel=None, H_positions=None,
+                          trajs_interp=None, q_pos_interp=None, q_vel_interp=None, H_positions_interp=None,
+                          **observation):
         A, b, K = None, None, None
         if self.field is not None:
             batch_size = trajs.shape[0]
@@ -182,12 +198,18 @@ class CostCollision(Cost):
             # H_pos = link_pos_from_link_tensor(H)  # get translation part from transformation matrices
             H_pos = H_positions
 
+            # Get H_obst wrt to the interpolated trajectory. This is computed inside get_error
+
             err_obst, H_obst = self.obst_factor.get_error(
                 trajs,
                 self.field,
                 q_pos=q_pos,
                 q_vel=q_vel,
                 H_pos=H_pos,
+                trajs_interp=trajs_interp,
+                q_pos_interp=q_pos_interp,
+                q_vel_interp=q_vel_interp,
+                H_pos_interp=H_positions_interp,
                 calc_jacobian=True,
                 obstacle_spheres=observation.get('obstacle_spheres', None)
             )
