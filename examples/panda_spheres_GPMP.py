@@ -1,3 +1,5 @@
+from future.moves import pickle
+
 from torch_robotics.environments.objects import GraspedObjectPandaBox
 
 import os
@@ -23,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 30
+    seed = 303
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -60,7 +62,7 @@ if __name__ == "__main__":
         start_state_ee_pos = robot.get_EE_position(start_state).squeeze()
         goal_state_ee_pos = robot.get_EE_position(goal_state).squeeze()
 
-        if torch.linalg.norm(start_state - goal_state) > 0.5:
+        if torch.linalg.norm(start_state_ee_pos - goal_state_ee_pos) > 0.5:
             break
 
     # start_state = torch.tensor([-2.6, 0.05, -1.2, -2.15,  1.33,  3.7, -1.7698],
@@ -75,10 +77,11 @@ if __name__ == "__main__":
     print(goal_state)
 
 
-
     # Construct planner
-    n_support_points = 64
-    dt = 0.04
+    duration = 5  # sec
+    n_support_points = 128
+    dt = duration / n_support_points
+
     num_particles_per_goal = 10
 
     default_params_env = env.get_gpmp2_params(robot=robot)
@@ -104,17 +107,23 @@ if __name__ == "__main__":
     trajs_iters[0] = trajs_0
     with TimerCUDA() as t:
         for i in range(opt_iters):
-            trajs = planner.optimize(opt_iters=1, debug=True)
+            trajs = planner.optimize(opt_iters=1, debug=False)
             trajs_iters[i+1] = trajs
     print(f'Optimization time: {t.elapsed:.3f} sec')
+    torch.cuda.empty_cache()
 
     # save trajectories
-    torch.cuda.empty_cache()
     trajs_iters_coll, trajs_iters_free = task.get_trajs_collision_and_free(trajs_iters[-1])
-    if trajs_iters_coll is not None:
-        torch.save(trajs_iters_coll.unsqueeze(0), f'trajs_iters_coll_{base_file_name}.pt')
-    if trajs_iters_free is not None:
-        torch.save(trajs_iters_free.unsqueeze(0), f'trajs_iters_free_{base_file_name}.pt')
+    results_data_dict = {
+        'duration': duration,
+        'n_support_points': n_support_points,
+        'dt': dt,
+        'trajs_iters_coll': trajs_iters_coll.unsqueeze(0) if trajs_iters_coll is not None else None,
+        'trajs_iters_free': trajs_iters_free.unsqueeze(0) if trajs_iters_free is not None else None,
+    }
+
+    with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'wb') as handle:
+        pickle.dump(results_data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # -------------------------------- Visualize ---------------------------------
     planner_visualizer = PlanningVisualizer(
@@ -159,7 +168,7 @@ if __name__ == "__main__":
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters[-1].shape[1],
-        anim_time=n_support_points*dt
+        anim_time=duration
     )
 
     plt.show()

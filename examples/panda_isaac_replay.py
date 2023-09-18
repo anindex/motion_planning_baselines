@@ -1,5 +1,7 @@
 import os
 
+from future.moves import pickle
+
 from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
 
 from torch_robotics.environments.objects import GraspedObjectPandaBox
@@ -21,6 +23,11 @@ fix_random_seed(seed)
 device = get_torch_device()
 tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
+# ---------------------------- Load motion planning results ---------------------------------
+base_file_name = 'panda_spheres_GPMP'
+with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'rb') as handle:
+    results_planning = pickle.load(handle)
+
 # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
 env = EnvSpheres3D(
     tensor_args=tensor_args
@@ -39,16 +46,7 @@ task = PlanningTask(
 )
 
 # -------------------------------- Physics ---------------------------------
-
-# trajs_iters = torch.load('trajs_iters.pt')
-traj_iters_path = 'trajs_iters_free_panda_spheres_GPMP.pt'
-traj_iters_path = 'trajs_iters_free_panda_spheres_HybridPlanner.pt'
-
-traj_iters_base = os.path.splitext(traj_iters_path)[0]
-
-trajs_iters = torch.load(traj_iters_path)
-
-
+trajs_iters = results_planning['trajs_iters_free']
 trajs_pos = robot.get_position(trajs_iters[-1]).movedim(1, 0)
 trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 
@@ -56,7 +54,7 @@ trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 # add initial positions for better visualization
 n_first_steps = 100
 n_last_steps = 100
-trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0)
+# trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 1).movedim(1, 0)
 # trajs_pos = trajs_pos[:, 0, :].unsqueeze(1)
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
@@ -66,8 +64,9 @@ motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,
     color_robots=False,
-    show_goal_configuration=False,
+    show_goal_configuration=True,
     sync_with_real_time=True,
+    **results_planning,
     # show_collision_spheres=True
 )
 
@@ -80,7 +79,7 @@ motion_planning_controller.run_trajectories(
     visualize=True,
     render_viewer_camera=True,
     make_video=True,
-    video_path=f'{traj_iters_base}-controller-position.mp4',
+    video_path=f'{base_file_name}-isaac-controller-position.mp4',
     make_gif=False
 )
 
