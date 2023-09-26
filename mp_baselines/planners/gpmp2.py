@@ -110,7 +110,7 @@ class GPMP2(OptimizationPlanner):
             sigma_goal_sample=None,
             sigma_gp_init=None,
             solver_params=None,
-            stop_criteria=0.1,  # or None
+            stop_criteria=None,  # or None
             **kwargs
     ):
         super(GPMP2, self).__init__(
