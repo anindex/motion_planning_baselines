@@ -320,13 +320,11 @@ class CostGPTrajectory(Cost):
             self,
             robot,
             n_support_points,
-            start_state,
             dt,
             sigma_gp=None,
             **kwargs
     ):
         super().__init__(robot, n_support_points, **kwargs)
-        self.start_state = start_state
         self.dt = dt
 
         self.sigma_gp = sigma_gp
@@ -376,13 +374,12 @@ class CostSmoothnessCHOMP(Cost):
             self,
             robot,
             n_support_points,
-            dt,
             **kwargs
     ):
         super().__init__(robot, n_support_points, **kwargs)
-        self.dt = dt
+        self.dt = robot.dt
 
-        self.Sigma_inv = CHOMP._get_R_mat(dt=dt, n_support_points=n_support_points, **kwargs)
+        self.Sigma_inv = CHOMP._get_R_mat(dt=self.dt, n_support_points=n_support_points, **kwargs)
 
     def eval(self, trajs, **observation):
         R_mat = self.Sigma_inv

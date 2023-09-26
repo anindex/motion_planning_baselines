@@ -6,6 +6,7 @@ import torch
 from einops._torch_specific import allow_ops_in_compiled_graph  # requires einops>=0.6.1
 
 from mp_baselines.planners.gpmp2 import GPMP2
+from torch_robotics.environments import EnvSimple2D
 from torch_robotics.environments.env_dense_2d import EnvDense2D
 from torch_robotics.environments.env_dense_2d_extra_objects import EnvDense2DExtraObjects
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
@@ -21,14 +22,20 @@ allow_ops_in_compiled_graph()
 
 
 if __name__ == "__main__":
-    seed = 3
+    seed = 2
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    env = EnvSimple2D(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.005,
         tensor_args=tensor_args
@@ -74,12 +81,12 @@ if __name__ == "__main__":
     print(goal_state)
 
     # Construct planner
-    num_particles_per_goal = 10
+    num_particles_per_goal = 5
 
     default_params_env = env.get_gpmp2_params(robot=robot)
     n_support_points = default_params_env['n_support_points']
 
-    duration = 2  # sec
+    duration = 5  # sec
     default_params_env['dt'] = duration / n_support_points
     dt = default_params_env['dt']
 
