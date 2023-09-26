@@ -107,12 +107,26 @@ if __name__ == "__main__":
     # Optimize
     opt_iters = default_params_env['opt_iters']
     trajs_0 = planner.get_traj()
-    trajs_iters = torch.empty((opt_iters + 1, *trajs_0.shape), **tensor_args)
-    trajs_iters[0] = trajs_0
+    trajs_iters = []
+    trajs_iters.append(trajs_0)
+    costs_previous = None
     with TimerCUDA() as t:
         for i in range(opt_iters):
+            print(f'Iteration: {i}')
             trajs = planner.optimize(opt_iters=1, debug=True)
-            trajs_iters[i+1] = trajs
+            trajs_iters.append(trajs)
+
+            costs = planner.costs
+            if i == 0:
+                costs_previous = costs
+                continue
+
+            if torch.all(torch.abs((costs - costs_previous)/costs) < 0.1):
+                break
+
+            costs_previous = costs.clone()
+
+    trajs_iters = torch.stack(trajs_iters)
     print(f'Optimization time: {t.elapsed:.3f} sec')
 
     # -------------------------------- Visualize ---------------------------------

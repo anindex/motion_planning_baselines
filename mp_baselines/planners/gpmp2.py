@@ -110,6 +110,7 @@ class GPMP2(OptimizationPlanner):
             sigma_goal_sample=None,
             sigma_gp_init=None,
             solver_params=None,
+            stop_criteria=0.1,  # or None
             **kwargs
     ):
         super(GPMP2, self).__init__(
@@ -149,6 +150,8 @@ class GPMP2(OptimizationPlanner):
         self._mean = None
         self._weights = None
         self._dist = None
+
+        self.stop_criteria = stop_criteria
 
         ##############################################
         # Construct cost function
@@ -279,6 +282,16 @@ class GPMP2(OptimizationPlanner):
         for opt_step in range(opt_iters):
             b, K = self._step(debug=debug, **observation)
 
+            # stop criteria
+            if self.stop_criteria is not None:
+                costs = self._get_costs(b, K)
+                if opt_step == 0:
+                    costs_previous = costs.clone()
+                    continue
+                if torch.all(torch.abs((costs - costs_previous)/costs) < self.stop_criteria):
+                    break
+                costs_previous = costs.clone()
+
         self.costs = self._get_costs(b, K)
 
         position_seq_mean = self._particle_means[..., :self.n_dof].clone()
@@ -298,8 +311,8 @@ class GPMP2(OptimizationPlanner):
                 self._particle_means,
                 n_interpolated_points=self.n_interpolated_points,
                 **observation)
-        if debug:
-            print(f't_grad {t_grad}')
+        # if debug:
+        #     print(f't_grad {t_grad}')
 
         J_t_J, g = self._get_grad_terms(
             A, b, K,
@@ -314,8 +327,8 @@ class GPMP2(OptimizationPlanner):
                 J_t_J, g,
                 method=self.solver_params['method'],
             )
-        if debug:
-            print(f't_solve {t_solve}')
+        # if debug:
+        #     print(f't_solve {t_solve}')
 
         d_theta = d_theta.view(
                 self.num_particles,
