@@ -7,7 +7,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
-from torch_robotics.environments import EnvDense2D
+from torch_robotics.environments import EnvDense2D, EnvSimple2D
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.robots.robot_point_mass import RobotPointMass
 from torch_robotics.tasks.tasks import PlanningTask
@@ -27,7 +27,13 @@ if __name__ == "__main__":
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvDense2D(
+    # env = EnvDense2D(
+    #     precompute_sdf_obj_fixed=True,
+    #     sdf_cell_size=0.005,
+    #     tensor_args=tensor_args
+    # )
+
+    env = EnvSimple2D(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.005,
         tensor_args=tensor_args
