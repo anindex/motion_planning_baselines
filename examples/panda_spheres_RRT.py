@@ -42,7 +42,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.01,
+        obstacle_cutoff_margin=0.03,
         tensor_args=tensor_args
     )
 
@@ -55,12 +55,12 @@ if __name__ == "__main__":
     print(goal_state)
 
     if planner == 'rrt-connect':
-        rrt_connect_default_params = env.get_rrt_connect_params()
+        rrt_connect_default_params = env.get_rrt_connect_params(robot=robot)
         rrt_connect_params = dict(
             **rrt_connect_default_params,
             task=task,
-            start_state=start_state,
-            goal_state=goal_state,
+            start_state_pos=start_state,
+            goal_state_pos=goal_state,
             tensor_args=tensor_args,
         )
         planner = RRTConnect(**rrt_connect_params)
@@ -80,13 +80,13 @@ if __name__ == "__main__":
             n_iters=n_iters,
             max_best_cost_iters=max_best_cost_iters,
             cost_eps=cost_eps,
-            start_state=start_state,
+            start_state_pos=start_state,
             step_size=step_size,
             n_radius=n_radius,
             n_knn=n_knn,
             max_time=max_time,
             goal_prob=goal_prob,
-            goal_state=goal_state,
+            goal_state_pos=goal_state,
             tensor_args=tensor_args,
         )
 

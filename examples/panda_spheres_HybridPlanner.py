@@ -82,7 +82,7 @@ if __name__ == "__main__":
     n_trajectories = 5
 
     ############### Sample-based planner
-    rrt_connect_default_params_env = env.get_rrt_connect_params()
+    rrt_connect_default_params_env = env.get_rrt_connect_params(robot=robot)
 
     rrt_connect_params = dict(
         **rrt_connect_default_params_env,
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     ############### Optimization-based planner
     n_support_points = 64
     dt = 0.04
-    gpmp_default_params_env = env.get_gpmp2_params()
+    gpmp_default_params_env = env.get_gpmp2_params(robot=robot)
 
     # Construct planner
     planner_params = dict(
