@@ -8,7 +8,7 @@ This library implements various Motion Planning methods.
 
 Simply activate your conda/Python environment and run
 
-```azure
+```bash
 pip install -e .
 ```
 
@@ -34,7 +34,7 @@ If you have any questions or find any bugs, please let us know:
 
 If you found this repository useful, please consider citing these references:
 
-```azure
+```bibtex
 @inproceedings{le2023accelerating,
   title={Accelerating Motion Planning via Optimal Transport},
   author={Le, An T. and Chalvatzaki, Georgia and Biess, Armin and Peters, Jan},
