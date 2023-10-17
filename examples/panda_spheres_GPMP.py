@@ -25,7 +25,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 303
+    seed = 5
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -39,6 +39,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
+        use_collision_spheres=True,
         use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
@@ -48,7 +49,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.03,
+        obstacle_cutoff_margin=0.05,
         tensor_args=tensor_args
     )
 
@@ -123,7 +124,7 @@ if __name__ == "__main__":
             costs_previous = costs.clone()
 
     trajs_iters = torch.stack(trajs_iters)
-    print(f'Optimization time: {t.elapsed:.3f} sec')
+    print(f'Optimization time: {t.elapsed:.3f} sec, per iteration: {t.elapsed/len(trajs_iters):.3f}')
     torch.cuda.empty_cache()
 
     # save trajectories

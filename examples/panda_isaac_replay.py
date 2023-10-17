@@ -25,6 +25,8 @@ tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
 # ---------------------------- Load motion planning results ---------------------------------
 base_file_name = 'panda_spheres_GPMP'
+# base_file_name = 'panda_spheres_CHOMP'
+
 with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'rb') as handle:
     results_planning = pickle.load(handle)
 
@@ -35,6 +37,7 @@ env = EnvSpheres3D(
 
 robot = RobotPanda(
     # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+    use_collision_spheres=True,
     tensor_args=tensor_args
 )
 
@@ -52,10 +55,12 @@ trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 
 # POSITION CONTROL
 # add initial positions for better visualization
-n_first_steps = 100
-n_last_steps = 100
-# trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 1).movedim(1, 0)
+n_first_steps = 30
+n_last_steps = 30
+# trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 3).movedim(1, 0)
 # trajs_pos = trajs_pos[:, 0, :].unsqueeze(1)
+
+results_planning['dt'] = 1./10.
 
 motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     env, robot, task,
@@ -66,6 +71,7 @@ motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
     color_robots=False,
     show_goal_configuration=True,
     sync_with_real_time=True,
+    show_collision_spheres=False,
     **results_planning,
     # show_collision_spheres=True
 )

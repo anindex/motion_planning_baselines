@@ -22,7 +22,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 2
+    seed = 999
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -35,6 +35,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args)
 
     robot = RobotPanda(
+        use_collision_spheres=True,
         use_self_collision_storm=True,
         tensor_args=tensor_args)
 
@@ -42,7 +43,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.01,
+        obstacle_cutoff_margin=0.05,
         tensor_args=tensor_args
     )
 
@@ -55,12 +56,12 @@ if __name__ == "__main__":
     print(goal_state)
 
     if planner == 'rrt-connect':
-        rrt_connect_default_params = env.get_rrt_connect_params()
+        rrt_connect_default_params = env.get_rrt_connect_params(robot=robot)
         rrt_connect_params = dict(
             **rrt_connect_default_params,
             task=task,
-            start_state=start_state,
-            goal_state=goal_state,
+            start_state_pos=start_state,
+            goal_state_pos=goal_state,
             tensor_args=tensor_args,
         )
         planner = RRTConnect(**rrt_connect_params)
@@ -80,8 +81,8 @@ if __name__ == "__main__":
             n_iters=n_iters,
             max_best_cost_iters=max_best_cost_iters,
             cost_eps=cost_eps,
-            start_state=start_state,
-            step_size=step_size,
+            start_state_pos=start_state,
+            step_size_pos=step_size,
             n_radius=n_radius,
             n_knn=n_knn,
             max_time=max_time,

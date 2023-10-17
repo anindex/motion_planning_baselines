@@ -124,7 +124,7 @@ if __name__ == "__main__":
         for i in range(opt_iters):
             trajs = planner.optimize(debug=True)
             trajs_iters[i+1] = trajs
-    print(f'Optimization time: {t.elapsed:.3f} sec')
+    print(f'Optimization time: {t.elapsed:.3f} sec, per iteration: {t.elapsed/opt_iters:.3f}')
 
     # -------------------------------- Visualize ---------------------------------
     print(f'----------------STATISTICS----------------')
