@@ -23,6 +23,8 @@ class RRTBase(MPPlanner):
             pre_samples=None,
             **kwargs
     ):
+        assert start_state_pos is not None and goal_state_pos is not None
+
         super(RRTBase, self).__init__(name=name, tensor_args=tensor_args)
         self.task = task
         self.n_iters = n_iters

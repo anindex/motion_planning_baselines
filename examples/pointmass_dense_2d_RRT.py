@@ -25,7 +25,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 0
+    seed = 1
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -66,9 +66,9 @@ if __name__ == "__main__":
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-0.9, -0.9], **tensor_args)
+    start_state_pos = torch.tensor([-0.9, -0.9], **tensor_args)
     # goal_state = torch.tensor([0.25, 0.9], **tensor_args)
-    goal_state = torch.tensor([-0.9, 0.], **tensor_args)
+    goal_state_pos = torch.tensor([0.9, 0.], **tensor_args)
 
     n_iters = 30000
     step_size = 0.01
@@ -78,12 +78,13 @@ if __name__ == "__main__":
     if planner == 'rrt-connect':
         rrt_connect_params = dict(
             task=task,
+
             n_iters=n_iters,
-            start_state=start_state,
+            start_state_pos=start_state_pos,
             step_size=step_size,
             n_radius=n_radius,
             max_time=max_time,
-            goal_state=goal_state,
+            goal_state_pos=goal_state_pos,
             tensor_args=tensor_args,
         )
         planner = RRTConnect(**rrt_connect_params)
@@ -98,13 +99,13 @@ if __name__ == "__main__":
             n_iters=n_iters,
             max_best_cost_iters=max_best_cost_iters,
             cost_eps=cost_eps,
-            start_state=start_state,
+            start_state_pos=start_state_pos,
             step_size=step_size,
             n_radius=n_radius,
             n_knn=n_knn,
             max_time=max_time,
             goal_prob=goal_prob,
-            goal_state=goal_state,
+            goal_state_pos=goal_state_pos,
             tensor_args=tensor_args,
         )
 
@@ -131,17 +132,17 @@ if __name__ == "__main__":
 
     planner_visualizer.plot_joint_space_state_trajectories(
         trajs=traj,
-        pos_start_state=start_state, pos_goal_state=goal_state,
-        vel_start_state=torch.zeros_like(start_state), vel_goal_state=torch.zeros_like(goal_state),
+        pos_start_state=start_state_pos, pos_goal_state=goal_state_pos,
+        vel_start_state=torch.zeros_like(start_state_pos), vel_goal_state=torch.zeros_like(goal_state_pos),
     )
 
     planner_visualizer.render_robot_trajectories(
-        trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
+        trajs=pos_trajs_iters, start_state=start_state_pos, goal_state=goal_state_pos,
         render_planner=True,
     )
 
     planner_visualizer.animate_robot_trajectories(
-        trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
+        trajs=pos_trajs_iters, start_state=start_state_pos, goal_state=goal_state_pos,
         plot_trajs=True,
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),

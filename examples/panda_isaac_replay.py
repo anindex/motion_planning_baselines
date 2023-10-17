@@ -24,8 +24,8 @@ device = get_torch_device()
 tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
 # ---------------------------- Load motion planning results ---------------------------------
-base_file_name = 'panda_spheres_GPMP'
-# base_file_name = 'panda_spheres_CHOMP'
+# base_file_name = 'panda_spheres_GPMP'
+base_file_name = 'panda_spheres_CHOMP'
 
 with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'rb') as handle:
     results_planning = pickle.load(handle)
@@ -37,6 +37,7 @@ env = EnvSpheres3D(
 
 robot = RobotPanda(
     # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+    use_self_collision_storm=True,
     use_collision_spheres=True,
     tensor_args=tensor_args
 )
@@ -89,34 +90,3 @@ motion_planning_controller.run_trajectories(
     make_gif=False
 )
 
-
-
-exit()
-
-# VELOCITY CONTROL
-# add initial and final velocities multiple times
-trajs_vel = interpolate_traj_via_points(trajs_vel.movedim(0, 1), 1).movedim(1, 0)
-
-motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
-    env, robot, task,
-    asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/isaacgym/assets/",
-    controller_type='velocity',
-    num_envs=trajs_pos.shape[1],
-    all_robots_in_one_env=True,
-    color_robots=False,
-    show_goal_configuration=True,
-    sync_with_real_time=True
-)
-
-motion_planning_controller = MotionPlanningController(motion_planning_isaac_env)
-motion_planning_controller.run_trajectories(
-    trajs_vel,
-    start_states_joint_pos=trajs_pos[0], goal_state_joint_pos=trajs_pos[-1][0],
-    n_first_steps=n_first_steps,
-    n_last_steps=n_last_steps,
-    visualize=True,
-    render_viewer_camera=True,
-    make_video=True,
-    video_path=f'{traj_iters_base}-controller-velocity.mp4',
-    make_gif=False
-)

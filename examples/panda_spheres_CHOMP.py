@@ -9,6 +9,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.cost_functions import CostComposite, CostCollision
 from torch_robotics.environments.env_spheres_3d import EnvSpheres3D
+from torch_robotics.environments.objects import GraspedObjectPandaBox
 from torch_robotics.robots.robot_panda import RobotPanda
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
@@ -22,7 +23,7 @@ allow_ops_in_compiled_graph()
 if __name__ == "__main__":
     base_file_name = Path(os.path.basename(__file__)).stem
 
-    seed = 999
+    seed = 11110
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -38,7 +39,8 @@ if __name__ == "__main__":
 
     robot = RobotPanda(
         use_collision_spheres=True,
-        use_self_collision_storm=True,
+        # use_self_collision_storm=True,
+        grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
                 tensor_args=tensor_args
             )
         )
-        weights_cost_l.append(1.0)
+        weights_cost_l.append(10.0)
 
     cost_func_list = [*cost_collisions]
     cost_composite = CostComposite(
