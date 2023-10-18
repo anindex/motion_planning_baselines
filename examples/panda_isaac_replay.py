@@ -26,9 +26,13 @@ tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 # ---------------------------- Load motion planning results ---------------------------------
 # base_file_name = 'panda_spheres_GPMP'
 base_file_name = 'panda_spheres_CHOMP'
-
 with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'rb') as handle:
     results_planning = pickle.load(handle)
+
+
+# base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/scripts/generate_data/data/1697610843'
+# with open(os.path.join(base_file_name, f'results_data_dict.pickle'), 'rb') as handle:
+#     results_planning = pickle.load(handle)
 
 # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
 env = EnvSpheres3D(
@@ -58,7 +62,7 @@ trajs_vel = robot.get_velocity(trajs_iters[-1]).movedim(1, 0)
 # add initial positions for better visualization
 n_first_steps = 30
 n_last_steps = 30
-# trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 3).movedim(1, 0)
+# trajs_pos = interpolate_traj_via_points(trajs_pos.movedim(0, 1), 2).movedim(1, 0)
 # trajs_pos = trajs_pos[:, 0, :].unsqueeze(1)
 
 results_planning['dt'] = 1./10.
