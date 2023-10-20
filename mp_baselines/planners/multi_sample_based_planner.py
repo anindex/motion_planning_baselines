@@ -34,9 +34,9 @@ class MultiSampleBasedPlanner:
         return trajs_l
 
     @property
-    def start_state(self):
+    def start_state_pos(self):
         return self.planner.start_state_pos
 
     @property
-    def goal_state(self):
+    def goal_state_pos(self):
         return self.planner.goal_state_pos
