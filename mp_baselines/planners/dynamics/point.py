@@ -193,7 +193,7 @@ class PointParticleDynamics:
 
         if cost is not None:
             full_traj = torch.cat((X, U), dim=-1)
-            energy_cost = cost.eval(full_traj)
+            energy_cost = cost.eval(full_traj).sum(-1)  # sum over the horizon
         else:
             energy_cost = 0.
 

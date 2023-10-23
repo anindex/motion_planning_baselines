@@ -86,23 +86,32 @@ class MPPI(MPPlanner):
         self.update_ctrl_dist()
 
     def sample_and_eval(self, **observation):
-        state_trajectories = torch.empty(
-            self.num_ctrl_samples,
-            self.rollout_steps, # self.rollout_steps + 1,
-            self.state_dim,
-            **self.tensor_args,
-        )
+        # state_trajectories = torch.empty(
+        #     self.num_ctrl_samples,
+        #     self.rollout_steps, # self.rollout_steps + 1,
+        #     self.state_dim,
+        #     **self.tensor_args,
+        # )
+        #
+        # # Sample control sequences
+        # control_samples = self.ctrl_dist.sample(self.num_ctrl_samples)
+        #
+        # # Roll-out dynamics
+        # state_trajectories[:, 0] = observation['state']
+        # for i in range(self.rollout_steps - 1):
+        #     state_trajectories[:, i+1] = self.system.dynamics(
+        #         state_trajectories[:, i].unsqueeze(1),
+        #         control_samples[:, i].unsqueeze(1),
+        #     ).squeeze(1)
+        # self.state_trajectories = state_trajectories.clone()
+
 
         # Sample control sequences
         control_samples = self.ctrl_dist.sample(self.num_ctrl_samples)
-
-        # Roll-out dynamics
-        state_trajectories[:, 0] = observation['state']
-        for i in range(self.rollout_steps - 1):
-            state_trajectories[:, i+1] = self.system.dynamics(
-                state_trajectories[:, i].unsqueeze(1),
-                control_samples[:, i].unsqueeze(1),
-            ).squeeze(1)
+        # Rollout dynamics
+        state_trajectories = self.get_state_trajectories_rollout(
+            controls=control_samples, num_ctrl_samples=self.num_ctrl_samples, **observation
+        )
         self.state_trajectories = state_trajectories.clone()
 
         # Evaluate costs
@@ -121,7 +130,7 @@ class MPPI(MPPlanner):
         return (
             control_samples,
             state_trajectories,
-            self.costs,
+            self.costs
         )
 
     def optimize(
@@ -134,11 +143,10 @@ class MPPI(MPPlanner):
             opt_iters = self.opt_iters
 
         for opt_step in range(opt_iters):
-
             with torch.no_grad():
                 (control_samples,
                  state_trajectories,
-                 costs,) = self.sample_and_eval(**observation)
+                 costs) = self.sample_and_eval(**observation)
                 self._save_best()
                 self.update_controller(costs, control_samples)
                 self._mean = self._mean.detach()
@@ -150,7 +158,7 @@ class MPPI(MPPlanner):
         return (
             control_samples,
             state_trajectories,
-            costs,
+            costs
         )
     
     def _save_best(self):
@@ -173,5 +181,33 @@ class MPPI(MPPlanner):
         return (
             self._recent_control_samples.detach().clone(),
             self._recent_state_trajectories.detach().clone(),
-            self._recent_weights.detach().clone(),
+            self._recent_weights.detach().clone()
         )
+
+    def get_mean_controls(self):
+        return self._mean
+
+    def get_state_trajectories_rollout(self, controls=None, num_ctrl_samples=None, **observation):
+        state_trajectories = torch.empty(
+            1 if num_ctrl_samples is None else num_ctrl_samples,
+            self.rollout_steps,  # self.rollout_steps + 1,
+            self.state_dim,
+            **self.tensor_args,
+        )
+
+        if controls is None:
+            control_samples = self._mean.unsqueeze(0)
+        else:
+            control_samples = controls
+
+        # Roll-out dynamics
+        state_trajectories[:, 0] = observation['state']
+        for i in range(self.rollout_steps - 1):
+            state_trajectories[:, i+1] = self.system.dynamics(
+                state_trajectories[:, i].unsqueeze(1),
+                control_samples[:, i].unsqueeze(1),
+            ).squeeze(1)
+        return state_trajectories.clone()
+
+    def render(self, ax, **kwargs):
+        raise NotImplementedError

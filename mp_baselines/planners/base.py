@@ -1,21 +1,24 @@
+import abc
 from abc import ABC, abstractmethod
 from typing import Tuple
 import torch
-from stoch_gpmp.costs.factors.mp_priors_multi import MultiMPPrior
-from stoch_gpmp.costs.factors.unary_factor import UnaryFactor
-from stoch_gpmp.costs.factors.gp_factor import GPFactor
+
+from mp_baselines.planners.costs.factors.gp_factor import GPFactor
+from mp_baselines.planners.costs.factors.mp_priors_multi import MultiMPPrior
+from mp_baselines.planners.costs.factors.unary_factor import UnaryFactor
+from torch_robotics.trajectory.utils import finite_difference_vector
 
 
 class MPPlanner(ABC):
     """Base class for all planners."""
 
-    def __init__(self, name: str, tensor_args: dict = None, **kwargs):
+    def __init__(
+        self,
+        name: str = None,
+        tensor_args: dict = None,
+        **kwargs
+    ):
         self.name = name
-        if tensor_args is None:
-            tensor_args = {
-                'device': torch.device('cpu'),
-                'dtype': torch.float32,
-            }
         self.tensor_args = tensor_args
         self._kwargs = kwargs
 
@@ -49,28 +52,37 @@ class MPPlanner(ABC):
     def __repr__(self):
         return f"{self.name}({self._kwargs})"
 
+    @abc.abstractmethod
+    def render(self, ax, **kwargs):
+        raise NotImplementedError
+
 
 class OptimizationPlanner(MPPlanner):
 
-    def __init__(self, name: str,
-                n_dof: int,
-                traj_len: int,
-                num_particles_per_goal: int,
-                opt_iters: int,
-                dt: float,
-                start_state: torch.Tensor,
-                cost=None,
-                initial_particle_means=None,
-                multi_goal_states: torch.Tensor = None,
-                sigma_start_init: float = 0.001,
-                sigma_goal_init: float = 0.001,
-                sigma_gp_init: float = 10.,
-                pos_only: bool = True,
-                tensor_args: dict = None, **kwargs):
+    def __init__(
+        self,
+        name: str = 'OptimizationPlanner',
+        n_dof: int = None,
+        n_support_points: int = None,
+        n_interpolated_points: int = None,
+        num_particles_per_goal: int = None,
+        opt_iters: int = None,
+        dt: float = None,
+        start_state: torch.Tensor = None,
+        cost=None,
+        initial_particle_means=None,
+        multi_goal_states: torch.Tensor = None,
+        sigma_start_init: float = 0.001,
+        sigma_goal_init: float = 0.001,
+        sigma_gp_init: float = 10.,
+        pos_only: bool = False,
+        tensor_args: dict = None, **kwargs
+    ):
         super().__init__(name, tensor_args, **kwargs)
         self.n_dof = n_dof
         self.dim = 2 * self.n_dof
-        self.traj_len = traj_len
+        self.n_support_points = n_support_points
+        self.n_interpolated_points = n_interpolated_points
         self.num_particles_per_goal = num_particles_per_goal
         self.opt_iters = opt_iters
         self.dt = dt
@@ -86,13 +98,15 @@ class OptimizationPlanner(MPPlanner):
         self.num_particles = self.num_goals * self.num_particles_per_goal
         self.cost = cost
         self.initial_particle_means = initial_particle_means
+        self._particle_means = None
         if self.pos_only:
             self.d_state_opt = self.n_dof
             self.start_state = self.start_state
         else:
             self.d_state_opt = 2 * self.n_dof
             self.start_state = torch.cat([self.start_state, torch.zeros_like(self.start_state)], dim=-1)
-            self.multi_goal_states = torch.cat([self.multi_goal_states, torch.zeros_like(self.multi_goal_states)], dim=-1)
+            if self.multi_goal_states is not None:
+                self.multi_goal_states = torch.cat([self.multi_goal_states, torch.zeros_like(self.multi_goal_states)], dim=-1)
 
         self.sigma_start_init = sigma_start_init
         self.sigma_goal_init = sigma_goal_init
@@ -111,7 +125,7 @@ class OptimizationPlanner(MPPlanner):
         if tensor_args is None:
             tensor_args = self.tensor_args
         return MultiMPPrior(
-            self.traj_len - 1,
+            self.n_support_points - 1,
             self.dt,
             self.dim,
             self.n_dof,
@@ -129,13 +143,13 @@ class OptimizationPlanner(MPPlanner):
         start_state,
         multi_goal_states,
     ):
-        traj_dim = (multi_goal_states.shape[0], self.traj_len, self.dim)
+        traj_dim = (multi_goal_states.shape[0], self.n_support_points, self.dim)
         state_traj = torch.zeros(traj_dim, **self.tensor_args)
-        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.traj_len * self.dt)
-        for i in range(self.traj_len):
-            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.traj_len - i - 1) / (self.traj_len - 1) \
-                                  + multi_goal_states[:, :self.n_dof] * i / (self.traj_len - 1)
-        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.traj_len, 1)
+        mean_vel = (multi_goal_states[:, :self.n_dof] - start_state[:, :self.n_dof]) / (self.n_support_points * self.dt)
+        for i in range(self.n_support_points):
+            state_traj[:, i, :self.n_dof] = start_state[:, :self.n_dof] * (self.n_support_points - i - 1) / (self.n_support_points - 1) \
+                                  + multi_goal_states[:, :self.n_dof] * i / (self.n_support_points - 1)
+        state_traj[:, :, self.n_dof:] = mean_vel.unsqueeze(1).repeat(1, self.n_support_points, 1)
         return state_traj
 
     def get_random_trajs(self):
@@ -159,7 +173,7 @@ class OptimizationPlanner(MPPlanner):
             self.n_dof,
             self.sigma_gp_init,
             self.dt,
-            self.traj_len - 1,
+            self.n_support_points - 1,
             tensor_args,
         )
 
@@ -193,19 +207,20 @@ class OptimizationPlanner(MPPlanner):
         """
         trajs = self._particle_means.clone()
         if self.pos_only:
-            # Linear velocity by finite differencing
-            vels = (trajs[..., :-1, :] - trajs[..., 1:, :]) / self.dt
-            # Pad end with zero-vel for planning
-            vels = torch.cat(
-                (vels, torch.zeros_like(vels[..., -1:, :])),
-                dim=0,
-            )
+            # Linear velocity by central finite differencing
+            vels = finite_difference_vector(trajs, dt=self.dt)
             trajs = torch.cat((trajs, vels), dim=1)
         return trajs
+
+    def get_traj(self):
+        return self._get_traj()
 
     def _get_costs(self, state_trajectories, **observation):
         if self.cost is None:
             costs = torch.zeros(self.num_particles, )
         else:
-            costs = self.cost.eval(state_trajectories, **observation)
+            costs = self.cost(state_trajectories, **observation)
         return costs
+
+    def render(self, ax, **kwargs):
+        raise NotImplementedError
