@@ -27,6 +27,7 @@ if __name__ == "__main__":
     fix_random_seed(seed)
 
     device = get_torch_device()
+    # device = 'cpu'
     print(device)
     tensor_args = {'device': device, 'dtype': torch.float32}
 
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     robot = RobotPanda(
         use_collision_spheres=True,
         # use_self_collision_storm=True,
-        grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
+        # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args
     )
 
@@ -48,7 +49,7 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1.5, -1.5, -1.5], [1.5, 1.5, 1.5]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.05,
+        obstacle_cutoff_margin=0.03,
         tensor_args=tensor_args
     )
 

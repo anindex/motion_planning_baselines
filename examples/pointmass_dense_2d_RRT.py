@@ -61,7 +61,7 @@ if __name__ == "__main__":
         # use_occupancy_map=True,  # whether to create and evaluate collisions on an occupancy map
         use_occupancy_map=False,
         cell_size=0.001,
-        obstacle_cutoff_margin=0.005,
+        obstacle_cutoff_margin=0.01,
         tensor_args=tensor_args
     )
 

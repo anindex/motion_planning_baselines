@@ -24,17 +24,17 @@ device = get_torch_device()
 tensor_args = {'device': 'cpu', 'dtype': torch.float32}
 
 # ---------------------------- Load motion planning results ---------------------------------
-# base_file_name = 'panda_spheres_GPMP'
-base_file_name = 'panda_spheres_CHOMP'
+base_file_name = 'panda_spheres_GPMP'
+# base_file_name = 'panda_spheres_CHOMP'
 with open(os.path.join('./', f'{base_file_name}-results_data_dict.pickle'), 'rb') as handle:
     results_planning = pickle.load(handle)
 
 
-base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/data_trajectories/EnvSpheres3D-RobotPanda/2'
-# base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/data_trajectories/EnvSpheres3D-RobotPanda/0'
-base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/scripts/generate_data/data/1697723666'
-with open(os.path.join(base_file_name, f'results_data_dict.pickle'), 'rb') as handle:
-    results_planning = pickle.load(handle)
+# base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/data_trajectories/EnvSpheres3D-RobotPanda/2'
+# # base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/data_trajectories/EnvSpheres3D-RobotPanda/0'
+# base_file_name = '/home/carvalho/Projects/MotionPlanningDiffusion/mpd/scripts/generate_data/data/1697723666'
+# with open(os.path.join(base_file_name, f'results_data_dict.pickle'), 'rb') as handle:
+#     results_planning = pickle.load(handle)
 
 # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
 env = EnvSpheres3D(
