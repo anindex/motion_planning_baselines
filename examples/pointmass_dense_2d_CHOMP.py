@@ -9,7 +9,7 @@ from mp_baselines.planners.chomp import CHOMP
 from mp_baselines.planners.costs.cost_functions import CostCollision, CostComposite
 from torch_robotics.environments import EnvDense2D, EnvSimple2D
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
-from torch_robotics.robots.robot_point_mass import RobotPointMass
+from torch_robotics.robots.robot_point_mass import RobotPointMass2D
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     #     tensor_args=tensor_args
     # )
 
-    robot = RobotPointMass(
+    robot = RobotPointMass2D(
         tensor_args=tensor_args
     )
 

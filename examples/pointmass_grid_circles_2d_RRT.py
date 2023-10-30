@@ -10,7 +10,7 @@ from torch_robotics.environments.env_base import EnvBase
 from torch_robotics.environments.env_dense_2d import EnvDense2D
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environments.utils import create_grid_spheres
-from torch_robotics.robots.robot_point_mass import RobotPointMass
+from torch_robotics.robots.robot_point_mass import RobotPointMass2D
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPointMass(
+    robot = RobotPointMass2D(
         tensor_args=tensor_args
     )
 

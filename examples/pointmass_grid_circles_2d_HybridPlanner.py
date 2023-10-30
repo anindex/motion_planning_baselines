@@ -11,7 +11,7 @@ from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
-from torch_robotics.robots.robot_point_mass import RobotPointMass
+from torch_robotics.robots.robot_point_mass import RobotPointMass2D
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
@@ -34,7 +34,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args
     )
 
-    robot = RobotPointMass(
+    robot = RobotPointMass2D(
         tensor_args=tensor_args
     )
 

@@ -13,7 +13,7 @@ from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar
 from torch_robotics.environments.env_grid_circles_2d import EnvGridCircles2D
 from torch_robotics.environments.env_maze_boxes_3d import EnvMazeBoxes3D
-from torch_robotics.robots.robot_point_mass import RobotPointMass, RobotPointMass3D
+from torch_robotics.robots.robot_point_mass import RobotPointMass2D, RobotPointMass3D
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_utils import get_torch_device
