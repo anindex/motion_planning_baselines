@@ -2,7 +2,7 @@ import os
 
 from future.moves import pickle
 
-from torch_robotics.isaac_gym_envs.motion_planning_envs import PandaMotionPlanningIsaacGymEnv, MotionPlanningController
+from torch_robotics.isaac_gym_envs.motion_planning_envs import MotionPlanningIsaacGymEnv, MotionPlanningController
 
 from torch_robotics.environments.objects import GraspedObjectPandaBox
 
@@ -69,16 +69,16 @@ n_last_steps = 30
 
 results_planning['dt'] = 1./10.
 
-motion_planning_isaac_env = PandaMotionPlanningIsaacGymEnv(
+motion_planning_isaac_env = MotionPlanningIsaacGymEnv(
     env, robot, task,
     asset_root="/home/carvalho/Projects/MotionPlanningDiffusion/mpd/deps/isaacgym/assets",
     controller_type='position',
     num_envs=trajs_pos.shape[1],
     all_robots_in_one_env=True,
     color_robots=False,
-    show_goal_configuration=True,
+    draw_goal_configuration=True,
     sync_with_real_time=True,
-    show_collision_spheres=False,
+    draw_collision_spheres=False,
     **results_planning,
     # show_collision_spheres=True
 )
