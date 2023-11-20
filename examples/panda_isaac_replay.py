@@ -77,7 +77,7 @@ motion_planning_isaac_env = MotionPlanningIsaacGymEnv(
     all_robots_in_one_env=True,
     color_robots=False,
     draw_goal_configuration=True,
-    sync_with_real_time=True,
+    sync_viewer_with_real_time=True,
     draw_collision_spheres=False,
     **results_planning,
     # show_collision_spheres=True
