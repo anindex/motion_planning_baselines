@@ -35,7 +35,7 @@ if __name__ == "__main__":
         tensor_args=tensor_args)
 
     robot = RobotPanda(
-        use_collision_spheres=True,
+        use_object_collision_spheres=True,
         use_self_collision_storm=True,
         tensor_args=tensor_args)
 

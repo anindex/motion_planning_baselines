@@ -1,4 +1,4 @@
-from torch_robotics.environments.objects import GraspedObjectPandaBox
+from torch_robotics.environments.grasped_objects import GraspedObjectBox
 
 import os
 from pathlib import Path

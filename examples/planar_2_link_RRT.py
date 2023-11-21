@@ -22,7 +22,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 0
+    seed = 9
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -43,13 +43,21 @@ if __name__ == "__main__":
         env=env,
         robot=robot,
         ws_limits=torch.tensor([[-1., -1.], [1., 1.]], **tensor_args),  # workspace limits
-        obstacle_cutoff_margin=0.01,
+        obstacle_cutoff_margin=0.005,
         tensor_args=tensor_args
     )
 
     # -------------------------------- Planner ---------------------------------
-    start_state = torch.tensor([-torch.pi/2, 0], **tensor_args)
-    goal_state = torch.tensor([torch.pi-0.05, 0], **tensor_args)
+    for _ in range(100):
+        q_free = task.random_coll_free_q(n_samples=2)
+        start_state = q_free[0]
+        goal_state = q_free[1]
+
+    # start_state = torch.tensor([-torch.pi/2, 0], **tensor_args)
+    # goal_state = torch.tensor([torch.pi-0.05, 0], **tensor_args)
+
+    print(f'start_state: {start_state}')
+    print(f'goal_state: {goal_state}')
 
     n_iters = 30000
     step_size = torch.pi/50
@@ -60,11 +68,11 @@ if __name__ == "__main__":
         rrt_connect_params = dict(
             task=task,
             n_iters=n_iters,
-            start_state=start_state,
+            start_state_pos=start_state,
             step_size=step_size,
             n_radius=n_radius,
             max_time=max_time,
-            goal_state=goal_state,
+            goal_state_pos=goal_state,
             tensor_args=tensor_args,
         )
         planner = RRTConnect(**rrt_connect_params)
@@ -79,13 +87,13 @@ if __name__ == "__main__":
             n_iters=n_iters,
             max_best_cost_iters=max_best_cost_iters,
             cost_eps=cost_eps,
-            start_state=start_state,
+            start_state_pos=start_state,
             step_size=step_size,
             n_radius=n_radius,
             n_knn=n_knn,
             max_time=max_time,
             goal_prob=goal_prob,
-            goal_state=goal_state,
+            goal_state_pos=goal_state,
             tensor_args=tensor_args,
         )
 
@@ -118,7 +126,7 @@ if __name__ == "__main__":
 
     planner_visualizer.render_robot_trajectories(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
-        render_planner=True,
+        render_planner=False,
     )
 
     planner_visualizer.animate_robot_trajectories(

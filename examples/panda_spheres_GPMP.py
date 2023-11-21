@@ -1,6 +1,6 @@
 from future.moves import pickle
 
-from torch_robotics.environments.objects import GraspedObjectPandaBox
+from torch_robotics.environments.grasped_objects import GraspedObjectBox
 
 import os
 from pathlib import Path
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     )
 
     robot = RobotPanda(
-        use_collision_spheres=True,
+        use_object_collision_spheres=True,
         use_self_collision_storm=True,
         # grasped_object=GraspedObjectPandaBox(tensor_args=tensor_args),
         tensor_args=tensor_args

@@ -7,7 +7,7 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.gpmp2 import GPMP2
 from torch_robotics.environments.env_table_shelf import EnvTableShelf
-from torch_robotics.environments.objects import GraspedObjectPandaBox
+from torch_robotics.environments.grasped_objects import GraspedObjectBox
 from torch_robotics.environments.primitives import ObjectField, MultiBoxField
 from torch_robotics.robots.robot_panda import RobotPanda
 from torch_robotics.tasks.tasks import PlanningTask

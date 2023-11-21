@@ -11,7 +11,7 @@ from mp_baselines.planners.hybrid_planner import HybridPlanner
 from mp_baselines.planners.multi_sample_based_planner import MultiSampleBasedPlanner
 from mp_baselines.planners.rrt_connect import RRTConnect
 from torch_robotics.environments.env_table_shelf import EnvTableShelf
-from torch_robotics.environments.objects import GraspedObjectPandaBox
+from torch_robotics.environments.grasped_objects import GraspedObjectBox
 from torch_robotics.robots.robot_panda import RobotPanda
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
