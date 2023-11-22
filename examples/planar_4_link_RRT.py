@@ -7,8 +7,8 @@ from einops._torch_specific import allow_ops_in_compiled_graph  # requires einop
 
 from mp_baselines.planners.rrt_connect import RRTConnect
 from mp_baselines.planners.rrt_star import RRTStar, InfRRTStar
-from torch_robotics.environments.env_planar2link import EnvPlanar2Link
-from torch_robotics.robots.robot_planar_link import RobotPlanar2Link
+from torch_robotics.environments import EnvPlanar4Link
+from torch_robotics.robots.robot_planar_link import RobotPlanar4Link
 from torch_robotics.tasks.tasks import PlanningTask
 from torch_robotics.torch_utils.seed import fix_random_seed
 from torch_robotics.torch_utils.torch_timer import TimerCUDA
@@ -22,20 +22,20 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 9
+    seed = 1111
     fix_random_seed(seed)
 
     device = get_torch_device()
     tensor_args = {'device': device, 'dtype': torch.float32}
 
     # ---------------------------- Environment, Robot, PlanningTask ---------------------------------
-    env = EnvPlanar2Link(
+    env = EnvPlanar4Link(
         precompute_sdf_obj_fixed=True,
         sdf_cell_size=0.001,
         tensor_args=tensor_args
     )
 
-    robot = RobotPlanar2Link(
+    robot = RobotPlanar4Link(
         tensor_args=tensor_args
     )
 
