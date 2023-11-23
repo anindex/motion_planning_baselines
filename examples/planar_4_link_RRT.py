@@ -22,7 +22,7 @@ if __name__ == "__main__":
     planner = 'rrt-connect'
     # planner = 'rrt-star'
 
-    seed = 1111
+    seed = 11111
     fix_random_seed(seed)
 
     device = get_torch_device()
@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     planner_visualizer.animate_robot_trajectories(
         trajs=pos_trajs_iters, start_state=start_state, goal_state=goal_state,
-        plot_trajs=True,
+        plot_trajs=False,
         video_filepath=f'{base_file_name}-robot-traj.mp4',
         # n_frames=max((2, pos_trajs_iters[-1].shape[1]//10)),
         n_frames=pos_trajs_iters.shape[1],
