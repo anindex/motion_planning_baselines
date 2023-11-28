@@ -43,6 +43,7 @@ robot = RobotPanda(
         object_collision_margin=0.05,
         tensor_args=tensor_args
     ),
+    gripper=True,
     tensor_args=tensor_args
 )
 
